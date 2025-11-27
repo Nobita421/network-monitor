@@ -17,13 +17,17 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
+    "clsx": "^2.1.0",
+    "dexie": "^4.2.1",
+    "geoip-lite": "^1.4.10",
+    "lucide-react": "^0.344.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
+    "react-globe.gl": "^2.37.0",
     "recharts": "^2.12.0",
     "systeminformation": "^5.21.22",
-    "lucide-react": "^0.344.0",
-    "clsx": "^2.1.0",
-    "tailwind-merge": "^2.2.1"
+    "tailwind-merge": "^2.2.1",
+    "tree-kill": "^1.2.2"
   },
   "devDependencies": {
     "@types/node": "^20.11.24",

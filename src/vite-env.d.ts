@@ -9,5 +9,8 @@ interface Window {
     getNetworkStats: () => Promise<any>
     getNetworkConnections: () => Promise<any[]>
     getProcessUsage: () => Promise<any[]>
+    killProcess: (pid: number) => Promise<boolean>
+    getIpLocation: (ip: string) => Promise<{ lat: number; lon: number; country: string; city: string } | null>
+    toggleOverlay: () => Promise<boolean>
   }
 }

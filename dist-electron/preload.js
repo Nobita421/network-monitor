@@ -20,5 +20,8 @@ electron.contextBridge.exposeInMainWorld("ipcRenderer", {
   // Specific APIs
   getNetworkStats: () => electron.ipcRenderer.invoke("get-network-stats"),
   getNetworkConnections: () => electron.ipcRenderer.invoke("get-network-connections"),
-  getProcessUsage: () => electron.ipcRenderer.invoke("get-process-usage")
+  getProcessUsage: () => electron.ipcRenderer.invoke("get-process-usage"),
+  killProcess: (pid) => electron.ipcRenderer.invoke("kill-process", pid),
+  getIpLocation: (ip) => electron.ipcRenderer.invoke("get-ip-location", ip),
+  toggleOverlay: () => electron.ipcRenderer.invoke("toggle-overlay")
 });

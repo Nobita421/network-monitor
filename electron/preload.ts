@@ -23,4 +23,7 @@ contextBridge.exposeInMainWorld('ipcRenderer', {
   getNetworkStats: () => ipcRenderer.invoke('get-network-stats'),
   getNetworkConnections: () => ipcRenderer.invoke('get-network-connections'),
   getProcessUsage: () => ipcRenderer.invoke('get-process-usage'),
+  killProcess: (pid: number) => ipcRenderer.invoke('kill-process', pid),
+  getIpLocation: (ip: string) => ipcRenderer.invoke('get-ip-location', ip),
+  toggleOverlay: () => ipcRenderer.invoke('toggle-overlay'),
 })

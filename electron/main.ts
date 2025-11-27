@@ -1,6 +1,8 @@
 import { app, BrowserWindow, ipcMain } from 'electron'
 import path from 'node:path'
 import si from 'systeminformation'
+import kill from 'tree-kill'
+import geoip from 'geoip-lite'
 
 // The built directory structure
 //
@@ -16,8 +18,42 @@ process.env.DIST = path.join(__dirname, '../dist')
 process.env.VITE_PUBLIC = app.isPackaged ? process.env.DIST : path.join(__dirname, '../public')
 
 let win: BrowserWindow | null
+let overlayWin: BrowserWindow | null = null
 // 🚧 Use ['ENV_NAME'] avoid vite:define plugin - Vite@2.x
 const VITE_DEV_SERVER_URL = process.env['VITE_DEV_SERVER_URL']
+
+function createOverlayWindow() {
+  overlayWin = new BrowserWindow({
+    width: 250,
+    height: 120,
+    frame: false,
+    transparent: true,
+    alwaysOnTop: true,
+    skipTaskbar: true,
+    resizable: false,
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.js'),
+      nodeIntegration: false,
+      contextIsolation: true,
+    },
+  })
+
+  overlayWin.setIgnoreMouseEvents(true, { forward: true })
+
+  // Allow moving the window by holding Shift (implemented in renderer if needed, but for now just click-through)
+  // Actually, to make it draggable we need to toggle ignoreMouseEvents.
+  // For this MVP, let's keep it fixed or simple click-through.
+
+  if (VITE_DEV_SERVER_URL) {
+    overlayWin.loadURL(`${VITE_DEV_SERVER_URL}#/overlay`)
+  } else {
+    overlayWin.loadFile(path.join(process.env.DIST || '', 'index.html'), { hash: 'overlay' })
+  }
+
+  overlayWin.on('closed', () => {
+    overlayWin = null
+  })
+}
 
 function createWindow() {
   win = new BrowserWindow({
@@ -145,4 +181,41 @@ app.whenReady().then(() => {
       return [];
     }
   });
+
+  ipcMain.handle('kill-process', async (_event, pid: number) => {
+    return new Promise((resolve) => {
+      if (!pid || pid === -1) {
+        resolve(false)
+        return
+      }
+      kill(pid, 'SIGKILL', (err: Error | undefined) => {
+        if (err) {
+          console.error(`Failed to kill process ${pid}:`, err)
+          resolve(false)
+        } else {
+          resolve(true)
+        }
+      })
+    })
+  })
+
+  ipcMain.handle('get-ip-location', async (_event, ip: string) => {
+    try {
+      const geo = geoip.lookup(ip)
+      return geo ? { lat: geo.ll[0], lon: geo.ll[1], country: geo.country, city: geo.city } : null
+    } catch (error) {
+      console.error(`Failed to lookup IP ${ip}:`, error)
+      return null
+    }
+  })
+
+  ipcMain.handle('toggle-overlay', () => {
+    if (overlayWin) {
+      overlayWin.close()
+      return false
+    } else {
+      createOverlayWindow()
+      return true
+    }
+  })
 })
