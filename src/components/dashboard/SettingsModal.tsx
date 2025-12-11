@@ -16,6 +16,13 @@ interface SettingsModalProps {
 export function SettingsModal({ isOpen, onClose, draft, updateDraft, onSave }: SettingsModalProps) {
     if (!isOpen) return null
 
+    const formatDuration = (minutes: number) => {
+        if (minutes < 1) {
+            return `${Math.round(minutes * 60)} sec`
+        }
+        return `${Number(minutes).toFixed(1).replace(/\.0$/, '')} min`
+    }
+
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
             <div className="w-full max-w-md rounded-3xl border border-white/10 bg-slate-900 p-6 shadow-2xl">
@@ -45,35 +52,35 @@ export function SettingsModal({ isOpen, onClose, draft, updateDraft, onSave }: S
                     </div>
 
                     <div className="space-y-2">
-                        <label className="text-sm font-medium text-slate-300">Alert Cooldown (Minutes)</label>
+                        <label className="text-sm font-medium text-slate-300">Alert Cooldown</label>
                         <div className="flex items-center gap-4">
                             <input
                                 type="range"
-                                min="1"
-                                max="60"
-                                step="1"
-                                value={draft.cooldown}
-                                onChange={(e) => { updateDraft('cooldown', Number(e.target.value)) }}
+                                min="5"
+                                max="3600"
+                                step="5"
+                                value={Math.round(draft.cooldown * 60)}
+                                onChange={(e) => { updateDraft('cooldown', Number(e.target.value) / 60) }}
                                 className="flex-1 accent-emerald-500"
                             />
-                            <span className="w-20 text-right text-sm font-mono text-emerald-400">{draft.cooldown} min</span>
+                            <span className="w-20 text-right text-sm font-mono text-emerald-400">{formatDuration(draft.cooldown)}</span>
                         </div>
                         <p className="text-xs text-slate-500">Minimum time between consecutive notifications</p>
                     </div>
 
                     <div className="space-y-2">
-                        <label className="text-sm font-medium text-slate-300">Pause Duration (Minutes)</label>
+                        <label className="text-sm font-medium text-slate-300">Pause Duration</label>
                         <div className="flex items-center gap-4">
                             <input
                                 type="range"
-                                min="1"
-                                max="120"
+                                min="5"
+                                max="7200"
                                 step="5"
-                                value={draft.pauseMinutes}
-                                onChange={(e) => { updateDraft('pauseMinutes', Number(e.target.value)) }}
+                                value={Math.round(draft.pauseMinutes * 60)}
+                                onChange={(e) => { updateDraft('pauseMinutes', Number(e.target.value) / 60) }}
                                 className="flex-1 accent-amber-500"
                             />
-                            <span className="w-20 text-right text-sm font-mono text-amber-400">{draft.pauseMinutes} min</span>
+                            <span className="w-20 text-right text-sm font-mono text-amber-400">{formatDuration(draft.pauseMinutes)}</span>
                         </div>
                         <p className="text-xs text-slate-500">How long to suspend telemetry when paused</p>
                     </div>
