@@ -1,7 +1,7 @@
 "use strict";
 const electron = require("electron");
 const path$3 = require("node:path");
-const fs = require("node:fs");
+const fs$b = require("node:fs");
 const require$$0$1 = require("os");
 const require$$1$1 = require("fs");
 const require$$2 = require("path");
@@ -26,7 +26,7 @@ function _interopNamespaceDefault(e) {
   n.default = e;
   return Object.freeze(n);
 }
-const fs__namespace = /* @__PURE__ */ _interopNamespaceDefault(fs);
+const fs__namespace = /* @__PURE__ */ _interopNamespaceDefault(fs$b);
 function getDefaultExportFromCjs(x) {
   return x && x.__esModule && Object.prototype.hasOwnProperty.call(x, "default") ? x["default"] : x;
 }
@@ -37,7 +37,7 @@ const require$$0 = {
 };
 var util$j = {};
 const os$8 = require$$0$1;
-const fs$b = require$$1$1;
+const fs$a = require$$1$1;
 const path$2 = require$$2;
 const spawn$1 = require$$1.spawn;
 const exec$h = require$$1.exec;
@@ -334,7 +334,7 @@ function getPowershell() {
   _powerShell = "powershell.exe";
   if (_windows$h) {
     const defaultPath = `${WINDIR}\\system32\\WindowsPowerShell\\v1.0\\powershell.exe`;
-    if (fs$b.existsSync(defaultPath)) {
+    if (fs$a.existsSync(defaultPath)) {
       _powerShell = defaultPath;
     }
   }
@@ -342,7 +342,7 @@ function getPowershell() {
 function getWmic() {
   if (os$8.type() === "Windows_NT" && !wmicPath) {
     wmicPath = WINDIR + "\\system32\\wbem\\wmic.exe";
-    if (!fs$b.existsSync(wmicPath)) {
+    if (!fs$a.existsSync(wmicPath)) {
       try {
         const wmicPathArray = execSync$b("WHERE WMIC", execOptsWin).toString().split("\r\n");
         if (wmicPathArray && wmicPathArray.length) {
@@ -619,7 +619,7 @@ function isRaspberry(cpuinfo) {
     cpuinfo = _rpi_cpuinfo;
   } else if (cpuinfo === void 0) {
     try {
-      cpuinfo = fs$b.readFileSync("/proc/cpuinfo", { encoding: "utf8" }).toString().split("\n");
+      cpuinfo = fs$a.readFileSync("/proc/cpuinfo", { encoding: "utf8" }).toString().split("\n");
       _rpi_cpuinfo = cpuinfo;
     } catch (e) {
       return false;
@@ -632,7 +632,7 @@ function isRaspberry(cpuinfo) {
 function isRaspbian() {
   let osrelease = [];
   try {
-    osrelease = fs$b.readFileSync("/etc/os-release", { encoding: "utf8" }).toString().split("\n");
+    osrelease = fs$a.readFileSync("/etc/os-release", { encoding: "utf8" }).toString().split("\n");
   } catch (e) {
     return false;
   }
@@ -650,9 +650,9 @@ function execWin(cmd, opts, callback) {
   });
 }
 function darwinXcodeExists() {
-  const cmdLineToolsExists = fs$b.existsSync("/Library/Developer/CommandLineTools/usr/bin/");
-  const xcodeAppExists = fs$b.existsSync("/Applications/Xcode.app/Contents/Developer/Tools");
-  const xcodeExists = fs$b.existsSync("/Library/Developer/Xcode/");
+  const cmdLineToolsExists = fs$a.existsSync("/Library/Developer/CommandLineTools/usr/bin/");
+  const xcodeAppExists = fs$a.existsSync("/Applications/Xcode.app/Contents/Developer/Tools");
+  const xcodeExists = fs$a.existsSync("/Library/Developer/Xcode/");
   return cmdLineToolsExists || xcodeExists || xcodeAppExists;
 }
 function nanoSeconds() {
@@ -770,8 +770,8 @@ function hex2bin(hex) {
   return ("00000000" + parseInt(hex, 16).toString(2)).substr(-8);
 }
 function getFilesInPath(source) {
-  const lstatSync = fs$b.lstatSync;
-  const readdirSync = fs$b.readdirSync;
+  const lstatSync = fs$a.lstatSync;
+  const readdirSync = fs$a.readdirSync;
   const join = path$2.join;
   function isDirectory(source2) {
     return lstatSync(source2).isDirectory();
@@ -802,7 +802,7 @@ function getFilesInPath(source) {
       return [];
     }
   }
-  if (fs$b.existsSync(source)) {
+  if (fs$a.existsSync(source)) {
     return getFilesRecursively(source);
   } else {
     return [];
@@ -1018,7 +1018,7 @@ function getRpiGpu(cpuinfo) {
     cpuinfo = _rpi_cpuinfo;
   } else {
     try {
-      cpuinfo = fs$b.readFileSync("/proc/cpuinfo", { encoding: "utf8" }).toString().split("\n");
+      cpuinfo = fs$a.readFileSync("/proc/cpuinfo", { encoding: "utf8" }).toString().split("\n");
       _rpi_cpuinfo = cpuinfo;
     } catch (e) {
       return false;
@@ -2583,7 +2583,7 @@ util$j.getPowershell = getPowershell;
 var system$1 = {};
 var osinfo = {};
 const os$7 = require$$0$1;
-const fs$a = require$$1$1;
+const fs$9 = require$$1$1;
 const util$h = util$j;
 const exec$g = require$$1.exec;
 const execSync$a = require$$1.execSync;
@@ -2916,7 +2916,7 @@ osinfo.osInfo = osInfo;
 function isUefiLinux() {
   return new Promise((resolve) => {
     process.nextTick(() => {
-      fs$a.stat("/sys/firmware/efi", function(err) {
+      fs$9.stat("/sys/firmware/efi", function(err) {
         if (!err) {
           return resolve(true);
         } else {
@@ -3156,7 +3156,7 @@ function versions(apps, callback) {
         }
         if ({}.hasOwnProperty.call(appsObj.versions, "git")) {
           if (_darwin$f) {
-            const gitHomebrewExists = fs$a.existsSync("/usr/local/Cellar/git") || fs$a.existsSync("/opt/homebrew/bin/git");
+            const gitHomebrewExists = fs$9.existsSync("/usr/local/Cellar/git") || fs$9.existsSync("/opt/homebrew/bin/git");
             if (util$h.darwinXcodeExists() || gitHomebrewExists) {
               exec$g("git --version", function(error, stdout) {
                 if (!error) {
@@ -3351,8 +3351,8 @@ function versions(apps, callback) {
               const stdout = execSync$a("sw_vers");
               const lines = stdout.toString().split("\n");
               const osVersion = util$h.getValue(lines, "ProductVersion", ":");
-              const gitHomebrewExists1 = fs$a.existsSync("/usr/local/Cellar/python");
-              const gitHomebrewExists2 = fs$a.existsSync("/opt/homebrew/bin/python");
+              const gitHomebrewExists1 = fs$9.existsSync("/usr/local/Cellar/python");
+              const gitHomebrewExists2 = fs$9.existsSync("/opt/homebrew/bin/python");
               if (util$h.darwinXcodeExists() && util$h.semverCompare("12.0.1", osVersion) < 0 || gitHomebrewExists1 || gitHomebrewExists2) {
                 const cmd2 = gitHomebrewExists1 ? "/usr/local/Cellar/python -V 2>&1" : gitHomebrewExists2 ? "/opt/homebrew/bin/python -V 2>&1" : "python -V 2>&1";
                 exec$g(cmd2, function(error, stdout2) {
@@ -3380,7 +3380,7 @@ function versions(apps, callback) {
         }
         if ({}.hasOwnProperty.call(appsObj.versions, "python3")) {
           if (_darwin$f) {
-            const gitHomebrewExists = fs$a.existsSync("/usr/local/Cellar/python3") || fs$a.existsSync("/opt/homebrew/bin/python3");
+            const gitHomebrewExists = fs$9.existsSync("/usr/local/Cellar/python3") || fs$9.existsSync("/opt/homebrew/bin/python3");
             if (util$h.darwinXcodeExists() || gitHomebrewExists) {
               exec$g("python3 -V 2>&1", function(error, stdout) {
                 if (!error) {
@@ -3404,7 +3404,7 @@ function versions(apps, callback) {
         }
         if ({}.hasOwnProperty.call(appsObj.versions, "pip")) {
           if (_darwin$f) {
-            const gitHomebrewExists = fs$a.existsSync("/usr/local/Cellar/pip") || fs$a.existsSync("/opt/homebrew/bin/pip");
+            const gitHomebrewExists = fs$9.existsSync("/usr/local/Cellar/pip") || fs$9.existsSync("/opt/homebrew/bin/pip");
             if (util$h.darwinXcodeExists() || gitHomebrewExists) {
               exec$g("pip -V 2>&1", function(error, stdout) {
                 if (!error) {
@@ -3430,7 +3430,7 @@ function versions(apps, callback) {
         }
         if ({}.hasOwnProperty.call(appsObj.versions, "pip3")) {
           if (_darwin$f) {
-            const gitHomebrewExists = fs$a.existsSync("/usr/local/Cellar/pip3") || fs$a.existsSync("/opt/homebrew/bin/pip3");
+            const gitHomebrewExists = fs$9.existsSync("/usr/local/Cellar/pip3") || fs$9.existsSync("/opt/homebrew/bin/pip3");
             if (util$h.darwinXcodeExists() || gitHomebrewExists) {
               exec$g("pip3 -V 2>&1", function(error, stdout) {
                 if (!error) {
@@ -3731,7 +3731,7 @@ echo -n "hardware: "; cat /sys/class/dmi/id/product_uuid 2> /dev/null; echo;`;
           result2.os = util$h.getValue(lines, "os").toLowerCase();
           result2.hardware = util$h.getValue(lines, "hardware").toLowerCase();
           if (!result2.hardware) {
-            const lines2 = fs$a.readFileSync("/proc/cpuinfo", { encoding: "utf8" }).toString().split("\n");
+            const lines2 = fs$9.readFileSync("/proc/cpuinfo", { encoding: "utf8" }).toString().split("\n");
             const serial = util$h.getValue(lines2, "serial");
             result2.hardware = serial || "";
           }
@@ -3780,7 +3780,7 @@ echo -n "hardware: "; cat /sys/class/dmi/id/product_uuid 2> /dev/null; echo;`;
   });
 }
 osinfo.uuid = uuid$1;
-const fs$9 = require$$1$1;
+const fs$8 = require$$1$1;
 const os$6 = require$$0$1;
 const util$g = util$j;
 const { uuid } = osinfo;
@@ -3935,7 +3935,7 @@ function system(callback) {
               util$g.noop();
             }
           }
-          if (fs$9.existsSync("/.dockerenv") || fs$9.existsSync("/.dockerinit")) {
+          if (fs$8.existsSync("/.dockerenv") || fs$8.existsSync("/.dockerinit")) {
             result2.model = "Docker Container";
           }
           try {
@@ -3963,7 +3963,7 @@ function system(callback) {
             util$g.noop();
           }
           if (result2.manufacturer === "" && result2.model === "Computer" && result2.version === "") {
-            fs$9.readFile("/proc/cpuinfo", function(error2, stdout2) {
+            fs$8.readFile("/proc/cpuinfo", function(error2, stdout2) {
               if (!error2) {
                 let lines2 = stdout2.toString().split("\n");
                 result2.model = util$g.getValue(lines2, "hardware", ":", true).toUpperCase();
@@ -4561,7 +4561,7 @@ var cpu$1 = {};
 const os$5 = require$$0$1;
 const exec$e = require$$1.exec;
 const execSync$8 = require$$1.execSync;
-const fs$8 = require$$1$1;
+const fs$7 = require$$1$1;
 const util$f = util$j;
 let _platform$e = process.platform;
 const _linux$d = _platform$e === "linux" || _platform$e === "android";
@@ -5346,7 +5346,7 @@ function getCpu() {
               result2.socket = "SOC";
             }
             if (util$f.getValue(lines, "architecture") === "riscv64") {
-              const linesRiscV = fs$8.readFileSync("/proc/cpuinfo").toString().split("\n");
+              const linesRiscV = fs$7.readFileSync("/proc/cpuinfo").toString().split("\n");
               const uarch = util$f.getValue(linesRiscV, "uarch") || "";
               if (uarch.indexOf(",") > -1) {
                 const split = uarch.split(",");
@@ -5737,9 +5737,9 @@ function cpuTemperature(callback) {
                   return;
                 }
               }
-              fs$8.stat("/sys/class/thermal/thermal_zone0/temp", function(err) {
+              fs$7.stat("/sys/class/thermal/thermal_zone0/temp", function(err) {
                 if (err === null) {
-                  fs$8.readFile("/sys/class/thermal/thermal_zone0/temp", function(error3, stdout3) {
+                  fs$7.readFile("/sys/class/thermal/thermal_zone0/temp", function(error3, stdout3) {
                     if (!error3) {
                       let lines2 = stdout3.toString().split("\n");
                       if (lines2.length > 0) {
@@ -5947,7 +5947,7 @@ function cpuFlags(callback) {
               });
             }
             if (!result2) {
-              fs$8.readFile("/proc/cpuinfo", function(error2, stdout2) {
+              fs$7.readFile("/proc/cpuinfo", function(error2, stdout2) {
                 if (!error2) {
                   let lines = stdout2.toString().split("\n");
                   result2 = util$f.getValue(lines, "features", ":", true).toLowerCase();
@@ -6445,7 +6445,7 @@ const os$4 = require$$0$1;
 const exec$d = require$$1.exec;
 const execSync$7 = require$$1.execSync;
 const util$e = util$j;
-const fs$7 = require$$1$1;
+const fs$6 = require$$1$1;
 let _platform$d = process.platform;
 const _linux$c = _platform$d === "linux" || _platform$d === "android";
 const _darwin$c = _platform$d === "darwin";
@@ -6507,7 +6507,7 @@ function mem(callback) {
       };
       if (_linux$c) {
         try {
-          fs$7.readFile("/proc/meminfo", function(error, stdout) {
+          fs$6.readFile("/proc/meminfo", function(error, stdout) {
             if (!error) {
               const lines = stdout.toString().split("\n");
               result2.total = parseInt(util$e.getValue(lines, "memtotal"), 10);
@@ -6920,7 +6920,7 @@ function memLayout(callback) {
 }
 memory.memLayout = memLayout;
 const exec$c = require$$1.exec;
-const fs$6 = require$$1$1;
+const fs$5 = require$$1$1;
 const util$d = util$j;
 let _platform$c = process.platform;
 const _linux$b = _platform$c === "linux" || _platform$c === "android";
@@ -6973,24 +6973,24 @@ var battery = function(callback) {
       };
       if (_linux$b) {
         let battery_path = "";
-        if (fs$6.existsSync("/sys/class/power_supply/BAT1/uevent")) {
+        if (fs$5.existsSync("/sys/class/power_supply/BAT1/uevent")) {
           battery_path = "/sys/class/power_supply/BAT1/";
-        } else if (fs$6.existsSync("/sys/class/power_supply/BAT0/uevent")) {
+        } else if (fs$5.existsSync("/sys/class/power_supply/BAT0/uevent")) {
           battery_path = "/sys/class/power_supply/BAT0/";
         }
         let acConnected = false;
         let acPath = "";
-        if (fs$6.existsSync("/sys/class/power_supply/AC/online")) {
+        if (fs$5.existsSync("/sys/class/power_supply/AC/online")) {
           acPath = "/sys/class/power_supply/AC/online";
-        } else if (fs$6.existsSync("/sys/class/power_supply/AC0/online")) {
+        } else if (fs$5.existsSync("/sys/class/power_supply/AC0/online")) {
           acPath = "/sys/class/power_supply/AC0/online";
         }
         if (acPath) {
-          const file = fs$6.readFileSync(acPath);
+          const file = fs$5.readFileSync(acPath);
           acConnected = file.toString().trim() === "1";
         }
         if (battery_path) {
-          fs$6.readFile(battery_path + "uevent", function(error, stdout) {
+          fs$5.readFile(battery_path + "uevent", function(error, stdout) {
             if (!error) {
               let lines = stdout.toString().split("\n");
               result2.isCharging = util$d.getValue(lines, "POWER_SUPPLY_STATUS", "=").toLowerCase() === "charging";
@@ -7209,7 +7209,7 @@ var battery = function(callback) {
   });
 };
 var graphics$1 = {};
-const fs$5 = require$$1$1;
+const fs$4 = require$$1$1;
 const exec$b = require$$1.exec;
 const execSync$6 = require$$1.execSync;
 const util$c = util$j;
@@ -7573,12 +7573,12 @@ function graphics(callback) {
     if (_windows$b) {
       try {
         const basePath = util$c.WINDIR + "\\System32\\DriverStore\\FileRepository";
-        const candidateDirs = fs$5.readdirSync(basePath).filter((dir) => {
-          return fs$5.readdirSync([basePath, dir].join("/")).includes("nvidia-smi.exe");
+        const candidateDirs = fs$4.readdirSync(basePath).filter((dir) => {
+          return fs$4.readdirSync([basePath, dir].join("/")).includes("nvidia-smi.exe");
         });
         const targetDir = candidateDirs.reduce((prevDir, currentDir) => {
-          const previousNvidiaSmi = fs$5.statSync([basePath, prevDir, "nvidia-smi.exe"].join("/"));
-          const currentNvidiaSmi = fs$5.statSync([basePath, currentDir, "nvidia-smi.exe"].join("/"));
+          const previousNvidiaSmi = fs$4.statSync([basePath, prevDir, "nvidia-smi.exe"].join("/"));
+          const currentNvidiaSmi = fs$4.statSync([basePath, currentDir, "nvidia-smi.exe"].join("/"));
           return previousNvidiaSmi.ctimeMs > currentNvidiaSmi.ctimeMs ? prevDir : currentDir;
         });
         if (targetDir) {
@@ -8274,7 +8274,7 @@ function graphics(callback) {
 graphics$1.graphics = graphics;
 var filesystem = {};
 const util$b = util$j;
-const fs$4 = require$$1$1;
+const fs$3 = require$$1$1;
 const exec$a = require$$1.exec;
 const execSync$5 = require$$1.execSync;
 const execPromiseSave = util$b.promisifySave(require$$1.exec);
@@ -8512,7 +8512,7 @@ function fsOpenFiles(callback) {
         });
       }
       if (_linux$9) {
-        fs$4.readFile("/proc/sys/fs/file-nr", function(error, stdout) {
+        fs$3.readFile("/proc/sys/fs/file-nr", function(error, stdout) {
           if (!error) {
             let lines = stdout.toString().split("\n");
             if (lines[0]) {
@@ -8531,7 +8531,7 @@ function fsOpenFiles(callback) {
             }
             resolve(result2);
           } else {
-            fs$4.readFile("/proc/sys/fs/file-max", function(error2, stdout2) {
+            fs$3.readFile("/proc/sys/fs/file-max", function(error2, stdout2) {
               if (!error2) {
                 let lines = stdout2.toString().split("\n");
                 if (lines[0]) {
@@ -9769,7 +9769,7 @@ var network = {};
 const os$3 = require$$0$1;
 const exec$9 = require$$1.exec;
 const execSync$4 = require$$1.execSync;
-const fs$3 = require$$1$1;
+const fs$2 = require$$1$1;
 const util$a = util$j;
 let _platform$9 = process.platform;
 const _linux$8 = _platform$9 === "linux" || _platform$9 === "android";
@@ -10948,7 +10948,7 @@ function networkStatsSingle(iface) {
       let cmd, lines, stats;
       if (!_network[ifaceSanitized] || _network[ifaceSanitized] && !_network[ifaceSanitized].ms || _network[ifaceSanitized] && _network[ifaceSanitized].ms && Date.now() - _network[ifaceSanitized].ms >= 500) {
         if (_linux$8) {
-          if (fs$3.existsSync("/sys/class/net/" + ifaceSanitized)) {
+          if (fs$2.existsSync("/sys/class/net/" + ifaceSanitized)) {
             cmd = "cat /sys/class/net/" + ifaceSanitized + "/operstate; cat /sys/class/net/" + ifaceSanitized + "/statistics/rx_bytes; cat /sys/class/net/" + ifaceSanitized + "/statistics/tx_bytes; cat /sys/class/net/" + ifaceSanitized + "/statistics/rx_dropped; cat /sys/class/net/" + ifaceSanitized + "/statistics/rx_errors; cat /sys/class/net/" + ifaceSanitized + "/statistics/tx_dropped; cat /sys/class/net/" + ifaceSanitized + "/statistics/tx_errors; ";
             exec$9(cmd, function(error, stdout) {
               if (!error) {
@@ -12238,7 +12238,7 @@ function wifiInterfaces(callback) {
 wifi.wifiInterfaces = wifiInterfaces;
 var processes$1 = {};
 const os$1 = require$$0$1;
-const fs$2 = require$$1$1;
+const fs$1 = require$$1$1;
 const path$1 = require$$2;
 const exec$7 = require$$1.exec;
 const execSync$2 = require$$1.execSync;
@@ -12805,7 +12805,7 @@ function processes(callback) {
           }
           if (firstPos === 1e4 && tmpCommand.indexOf(" ") > -1) {
             const parts = tmpCommand.split(" ");
-            if (fs$2.existsSync(path$1.join(cmdPath, parts[0]))) {
+            if (fs$1.existsSync(path$1.join(cmdPath, parts[0]))) {
               command = parts.shift();
               params = (parts.join(" ") + " " + tmpParams).trim();
             } else {
@@ -16862,7 +16862,7 @@ const execSync = require$$1.execSync;
 const path = require$$2;
 const util = util$j;
 const bluetoothVendors = bluetoothVendors$1;
-const fs$1 = require$$1$1;
+const fs = require$$1$1;
 let _platform = process.platform;
 const _linux = _platform === "linux" || _platform === "android";
 const _darwin = _platform === "darwin";
@@ -16987,7 +16987,7 @@ function bluetoothDevices(callback) {
           const macAddr1 = pathParts.length >= 6 ? pathParts[pathParts.length - 2] : null;
           const macAddr2 = pathParts.length >= 7 ? pathParts[pathParts.length - 3] : null;
           if (filename === "info") {
-            const infoFile = fs$1.readFileSync(element, { encoding: "utf8" }).split("\n");
+            const infoFile = fs.readFileSync(element, { encoding: "utf8" }).split("\n");
             result2.push(parseLinuxBluetoothInfo(infoFile, macAddr1, macAddr2));
           }
         });

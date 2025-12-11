@@ -336,16 +336,18 @@ export function GlobeView({ connections }: GlobeViewProps) {
                     width={dimensions.width}
                     height={dimensions.height}
                     // Offline Asset or Custom Material
-                    globeMaterial={new THREE.MeshPhongMaterial({
+                    // globeImageUrl="assets/earth-night.jpg"
+                    globeImageUrl="/assets/earth-night.jpg"
+
+                    // Offline Asset or Custom Material - Commented out to restore texture
+                    /* globeMaterial={new THREE.MeshPhongMaterial({
                         color: '#0f172a', // Slate 900
                         emissive: '#020617', // Slate 950
                         emissiveIntensity: 0.1,
                         shininess: 0.7,
                         transparent: true,
                         opacity: 0.9,
-                        // wireframe: true // Optional: enable for full holographic look
-                    })}
-                    // globeImageUrl="assets/earth-night.jpg" // Replaced by Material
+                    })} */
 
                     // Hex Binning (Replaces simple Points)
                     hexBinPointsData={hexData}
