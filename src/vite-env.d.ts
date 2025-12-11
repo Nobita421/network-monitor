@@ -5,7 +5,7 @@ interface Window {
     on: (channel: string, listener: (event: unknown, ...args: any[]) => void) => void
     off: (channel: string, ...args: unknown[]) => void
     send: (channel: string, ...args: any[]) => void
-    invoke: (channel: string, ...args: any[]) => Promise<any>
+    invoke: (channel: string, ...args: unknown[]) => Promise<any>
     getTrafficStats: () => Promise<any>
     getNetworkStats: () => Promise<NetworkStat | null>
     getNetworkConnections: () => Promise<any[]>

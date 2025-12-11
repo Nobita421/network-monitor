@@ -36,7 +36,7 @@ export function SettingsModal({ isOpen, onClose, draft, updateDraft, onSave }: S
                                 max="100"
                                 step="0.5"
                                 value={draft.thresholdMb}
-                                onChange={(e) => updateDraft('thresholdMb', Number(e.target.value))}
+                                onChange={(e) => { updateDraft('thresholdMb', Number(e.target.value)) }}
                                 className="flex-1 accent-sky-500"
                             />
                             <span className="w-20 text-right text-sm font-mono text-sky-400">{draft.thresholdMb} MB/s</span>
@@ -53,7 +53,7 @@ export function SettingsModal({ isOpen, onClose, draft, updateDraft, onSave }: S
                                 max="60"
                                 step="1"
                                 value={draft.cooldown}
-                                onChange={(e) => updateDraft('cooldown', Number(e.target.value))}
+                                onChange={(e) => { updateDraft('cooldown', Number(e.target.value)) }}
                                 className="flex-1 accent-emerald-500"
                             />
                             <span className="w-20 text-right text-sm font-mono text-emerald-400">{draft.cooldown} min</span>
@@ -70,7 +70,7 @@ export function SettingsModal({ isOpen, onClose, draft, updateDraft, onSave }: S
                                 max="120"
                                 step="5"
                                 value={draft.pauseMinutes}
-                                onChange={(e) => updateDraft('pauseMinutes', Number(e.target.value))}
+                                onChange={(e) => { updateDraft('pauseMinutes', Number(e.target.value)) }}
                                 className="flex-1 accent-amber-500"
                             />
                             <span className="w-20 text-right text-sm font-mono text-amber-400">{draft.pauseMinutes} min</span>

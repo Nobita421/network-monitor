@@ -98,7 +98,7 @@ export function useNetworkData(settings: Settings) {
         timestamp: Date.now(),
         rx: data.rx_sec,
         tx: data.tx_sec
-    }).catch(err => console.error('Failed to persist stats:', err));
+    }).catch(err => { console.error('Failed to persist stats:', err) });
 
     setHistory((prev) => {
         const newPoint = { time: new Date().toLocaleTimeString(), rx: data.rx_sec, tx: data.tx_sec };

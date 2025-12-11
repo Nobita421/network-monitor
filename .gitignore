@@ -65,3 +65,7 @@ public/static/
 
 # Misc generated files
 *.pid
+
+
+#Ignore vscode AI rules
+.github\instructions\codacy.instructions.md
