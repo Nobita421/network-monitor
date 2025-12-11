@@ -26,14 +26,7 @@ export function GlobeView({ connections }: GlobeViewProps) {
         return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
     }, []);
 
-    // Enable Auto-Rotation
-    useEffect(() => {
-        if (globeRef.current) {
-            globeRef.current.controls().autoRotate = true;
-            globeRef.current.controls().autoRotateSpeed = 0.5;
-            globeRef.current.pointOfView({ altitude: 2.5 });
-        }
-    }, [isVisible]);
+
 
     // Extract unique remote IPs
     const uniqueIps = useMemo(() => {
@@ -46,7 +39,7 @@ export function GlobeView({ connections }: GlobeViewProps) {
         return Array.from(ips)
     }, [connections])
 
-    const { locations } = useGeoLocation(uniqueIps)
+    const { locations, myLocation } = useGeoLocation(uniqueIps)
 
     // Group locations by coordinates to avoid stacked points and incorrect "Locations" count
     const uniqueLocations = useMemo(() => {
@@ -70,19 +63,32 @@ export function GlobeView({ connections }: GlobeViewProps) {
             lng: loc.lon,
             size: 0.1 + (Math.min(loc.ips.length, 5) * 0.05), // Scale size slightly by count
             color: '#10b981', // Emerald 500
-            name: `${loc.city}, ${loc.country} (${loc.ips.length} IPs)`
+            name: `<b>${loc.city}, ${loc.country}</b><br/>${loc.ips.length} Connections`
         }))
     }, [uniqueLocations])
 
-    const ringsData = useMemo(() => {
-        return uniqueLocations.map(loc => ({
-            lat: loc.lat,
-            lng: loc.lon,
-            maxR: 5 + Math.min(loc.ips.length, 5), // Larger rings for busy locations
-            propagationSpeed: 2,
-            repeatPeriod: 1000
-        }))
-    }, [uniqueLocations])
+
+
+    // Arcs for Data Travel Direction
+    const arcsData = useMemo(() => {
+        if (!myLocation) return [];
+        return uniqueLocations.flatMap(loc => {
+            // Visualize flows. Ideally we'd know if a specific IP was Rx or Tx.
+            // For now, let's assume 'Rx' (Incoming) is dominant for monitoring (downloading stuff).
+            // We can show TWO arcs if we want, or just one green one coming IN.
+            // Let's simulate: Green Arcs = Incoming (Remote -> Me)
+            return [{
+                startLat: loc.lat,
+                startLng: loc.lon,
+                endLat: myLocation.lat,
+                endLng: myLocation.lon,
+                color: '#10b981', // Emerald (Download)
+                dashLength: 0.4,
+                dashGap: 0.2,
+                animateTime: 2000 // Speed
+            }];
+        })
+    }, [uniqueLocations, myLocation]);
 
     useEffect(() => {
         const handleResize = () => {
@@ -111,22 +117,37 @@ export function GlobeView({ connections }: GlobeViewProps) {
                     width={dimensions.width}
                     height={dimensions.height}
                     globeImageUrl="//unpkg.com/three-globe/example/img/earth-night.jpg"
+
+                    // Points (Cities)
                     pointsData={gData}
                     pointAltitude={0.01}
                     pointColor="color"
                     pointRadius="size"
-                    pointLabel="name"
+                    pointLabel="name" // HTML Tooltip
 
                     // Atmosphere - Cyber Glow
-                    atmosphereColor="#3b82f6" // Blue-500
+                    atmosphereColor="#3b82f6"
                     atmosphereAltitude={0.2}
 
-                    // Rings - Active Pulses
-                    ringsData={ringsData}
-                    ringColor={() => '#10b981'}
-                    ringMaxRadius="maxR"
-                    ringPropagationSpeed="propagationSpeed"
-                    ringRepeatPeriod="repeatPeriod"
+
+
+                    // Arcs - Traffic Flow
+                    arcsData={arcsData}
+                    arcColor="color"
+                    arcDashLength="dashLength"
+                    arcDashGap="dashGap"
+                    arcDashAnimateTime="animateTime"
+                    // arcStroke={0.5}
+
+                    // Labels - Persistent City Names
+                    labelsData={uniqueLocations}
+                    labelLat="lat"
+                    labelLng="lon"
+                    labelText={(d: any) => `${d.city} (${d.ips.length})`}
+                    labelSize={1.5}
+                    labelDotRadius={0.5}
+                    labelColor={() => 'rgba(255, 255, 255, 0.75)'}
+                    labelResolution={2}
 
                     backgroundColor="rgba(0,0,0,0)"
                     // Performance settings
@@ -138,9 +159,17 @@ export function GlobeView({ connections }: GlobeViewProps) {
                     }}
                     pointsMerge={true} // Improve performance for many points
                 />
-                <div className="absolute bottom-4 left-4 bg-slate-900/80 p-3 rounded-lg backdrop-blur border border-slate-700/50 pointer-events-none">
-                    <p className="text-xs text-slate-400">Active Locations</p>
-                    <p className="text-xl font-bold text-emerald-400">{uniqueLocations.length}</p>
+
+                {/* Overlay Cards */}
+                <div className="absolute bottom-4 left-4 flex gap-4 pointer-events-none">
+                    <div className="bg-slate-900/80 p-3 rounded-lg backdrop-blur border border-slate-700/50">
+                        <p className="text-xs text-slate-400">Active Locations</p>
+                        <p className="text-xl font-bold text-emerald-400">{uniqueLocations.length}</p>
+                    </div>
+                    <div className="bg-slate-900/80 p-3 rounded-lg backdrop-blur border border-slate-700/50">
+                        <p className="text-xs text-slate-400">Total Connections</p>
+                        <p className="text-xl font-bold text-sky-400">{connections.length}</p>
+                    </div>
                 </div>
             </div>
         </Card>

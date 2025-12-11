@@ -91,5 +91,49 @@ export function useGeoLocation(ips: string[]) {
     }
   }, [ips, locations]);
 
-  return { locations: Array.from(locations.values()) }
+  const [myLocation, setMyLocation] = useState<GeoLocation | null>(null);
+
+  useEffect(() => {
+      // Fetch user's "Home" location for the globe center/arc origin
+      const fetchMyLocation = async () => {
+          try {
+              // Try browser geolocation first for accuracy
+              /* navigator.geolocation.getCurrentPosition(
+                  (pos) => {
+                      setMyLocation({
+                          lat: pos.coords.latitude,
+                          lon: pos.coords.longitude,
+                          country: 'Local',
+                          city: 'My Location',
+                          ip: '127.0.0.1'
+                      });
+                  },
+                  async () => { */
+                      // Fallback to IP-based if geolocation fails/blocked (or just default for now to avoid permission prompts)
+                      // SImulate or use a quick fetch if needed. For now, let's use a known public API *client-side* only if user allows.
+                      // Actually, for a desktop app, we can guess based on the first "external" request or just default to 0,0 
+                      // or better: let the user set it? 
+                      // Let's try a simple fetch to a free geo-ip service (robustness: fail gracefully)
+                      const res = await fetch('https://ipapi.co/json/');
+                      if (res.ok) {
+                          const data = await res.json();
+                          setMyLocation({
+                              lat: data.latitude,
+                              lon: data.longitude,
+                              country: data.country_name,
+                              city: data.city,
+                              ip: data.ip
+                          });
+                      }
+                 /* }
+              ); */
+          } catch (e) {
+              console.warn("Could not determine local location", e);
+          }
+      };
+
+      fetchMyLocation();
+  }, []);
+
+  return { locations: Array.from(locations.values()), myLocation }
 }
