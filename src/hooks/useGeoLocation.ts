@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 
 interface GeoLocation {
   lat: number
@@ -135,5 +135,7 @@ export function useGeoLocation(ips: string[]) {
       fetchMyLocation();
   }, []);
 
-  return { locations: Array.from(locations.values()), myLocation }
+  const locationList = useMemo(() => Array.from(locations.values()), [locations]);
+
+  return { locations: locationList, myLocation }
 }
