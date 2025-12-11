@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { NetworkStat, Connection, ProcessUsageEntry, HistoryPoint, Settings } from '../types'
+import { NetworkStat, ProcessUsageEntry, HistoryPoint, Settings } from '../types'
 import { formatBytes, loadStoredNumber } from '../lib/utils'
 import { TELEMETRY_RESUME_KEY, LAST_ALERT_KEY } from '../lib/constants'
 import { db } from '../lib/db'
@@ -73,7 +73,7 @@ export function useNetworkData(settings: Settings) {
       }
     }, 1000)
 
-    return () => clearInterval(interval)
+    return () => { clearInterval(interval) }
   }, [telemetryResumeAt])
 
   // Process Traffic Stats (1s interval from hook)
@@ -88,14 +88,6 @@ export function useNetworkData(settings: Settings) {
         tx_sec: data.tx_sec,
         iface: data.iface,
         operstate: data.operstate,
-        // Add other fields if NetworkStat requires them, or update NetworkStat type
-        rx_bytes: 0, // Not provided by light endpoint
-        tx_bytes: 0,
-        rx_dropped: 0,
-        tx_dropped: 0,
-        rx_errors: 0,
-        tx_errors: 0,
-        ms: 0
     };
 
     setStats(netStat);
@@ -126,13 +118,13 @@ export function useNetworkData(settings: Settings) {
         if (!lastAlertAt || now - lastAlertAt > 10000) {
             if (data.rx_sec > threshold) {
                 setAlertIndicator(true);
-                setAlertLog(prev => [{ time: new Date().toLocaleTimeString(), direction: 'rx', rate: formatBytes(data.rx_sec) }, ...prev].slice(0, 50));
+                setAlertLog(prev => [{ time: new Date().toLocaleTimeString(), direction: 'rx' as const, rate: formatBytes(data.rx_sec) }, ...prev].slice(0, 50));
                 setLastAlertAt(now);
                 setTimeout(() => setAlertIndicator(false), 2000);
             }
             if (data.tx_sec > threshold) {
                 setAlertIndicator(true);
-                setAlertLog(prev => [{ time: new Date().toLocaleTimeString(), direction: 'tx', rate: formatBytes(data.tx_sec) }, ...prev].slice(0, 50));
+                setAlertLog(prev => [{ time: new Date().toLocaleTimeString(), direction: 'tx' as const, rate: formatBytes(data.tx_sec) }, ...prev].slice(0, 50));
                 setLastAlertAt(now);
                 setTimeout(() => setAlertIndicator(false), 2000);
             }

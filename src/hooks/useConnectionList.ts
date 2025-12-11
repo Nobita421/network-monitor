@@ -17,12 +17,12 @@ export function useConnectionList() {
     };
 
     // Initial fetch
-    fetchConnections();
+    void fetchConnections();
 
     // Poll every 5 seconds (Low Frequency)
     const interval = setInterval(fetchConnections, 5000);
 
-    return () => clearInterval(interval);
+    return () => { clearInterval(interval); }
   }, []);
 
   return connections;

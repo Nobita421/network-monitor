@@ -13,6 +13,7 @@ export interface Connection {
   peerPort: string
   state: string
   process: string
+  pid?: number
 }
 
 export interface ProcessUsageEntry {
