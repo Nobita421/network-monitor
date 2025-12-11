@@ -1,7 +1,9 @@
 import { useMemo, useState, useEffect, memo, useRef, useCallback } from 'react'
 import Globe, { GlobeMethods } from 'react-globe.gl'
-import { Globe as GlobeIcon } from 'lucide-react'
+import * as THREE from 'three'
+import { Globe as GlobeIcon, Activity, ExternalLink, Zap } from 'lucide-react'
 import { Card } from '../ui/Card'
+import { Drawer } from '../ui/Drawer'
 import { Connection } from '../../types'
 import { useGeoLocation } from '../../hooks/useGeoLocation'
 
@@ -18,7 +20,10 @@ interface GlobePoint {
     labelText: string;
     city?: string;
     country?: string;
+    isp?: string;
+    asn?: string;
     connCount: number;
+    connections?: Connection[]; // For Drawer
 }
 
 // Memoize the Globe component to prevent re-renders when parent updates but props are same
@@ -28,8 +33,11 @@ export function GlobeView({ connections }: GlobeViewProps) {
     const [dimensions, setDimensions] = useState({ width: 800, height: 600 })
     const [isVisible, setIsVisible] = useState(true);
     const globeRef = useRef<GlobeMethods | undefined>(undefined);
-    // State for Custom Hover Card
+
+    // UI State
     const [hoveredPoint, setHoveredPoint] = useState<GlobePoint | null>(null);
+    const [selectedHex, setSelectedHex] = useState<GlobePoint | null>(null); // For Drawer
+    const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
     const [filterProcess, setFilterProcess] = useState('');
 
@@ -63,16 +71,19 @@ export function GlobeView({ connections }: GlobeViewProps) {
         );
     }, [connections, filterProcess]);
 
-    // Group locations by coordinates and aggregate Process Names
+    // Group locations by coordinates and aggregate Process Names & Connections
     const uniqueLocations = useMemo(() => {
         const locMap = new Map<string, {
             lat: number,
             lon: number,
             city: string,
             country: string,
+            isp: string,
+            asn: string,
             ips: Set<string>,
             processes: Map<string, number>,
-            totalConns: number
+            totalConns: number,
+            rawData: Connection[]
         }>();
 
         // Quick lookup for Geo
@@ -91,9 +102,12 @@ export function GlobeView({ connections }: GlobeViewProps) {
                     lon: geo.lon,
                     city: geo.city,
                     country: geo.country,
+                    isp: geo.isp || 'Unknown ISP',
+                    asn: geo.asn || '',
                     ips: new Set([conn.peerAddress]),
                     processes: new Map([[conn.process || 'System', 1]]),
-                    totalConns: 1
+                    totalConns: 1,
+                    rawData: [conn]
                 });
             } else {
                 const entry = locMap.get(key)!;
@@ -101,14 +115,13 @@ export function GlobeView({ connections }: GlobeViewProps) {
                 const proc = conn.process || 'System';
                 entry.processes.set(proc, (entry.processes.get(proc) || 0) + 1);
                 entry.totalConns += 1;
+                entry.rawData.push(conn);
             }
         });
 
         return Array.from(locMap.values());
     }, [filteredConnections, locations]);
 
-    // Hex Bin Data (Remote Locations)
-    // We use uniqueLocations as the data source and map 'weight' to connection count
     const hexData = useMemo(() => {
         return uniqueLocations.map(loc => {
             const sortedProcs = [...loc.processes.entries()].sort((a, b) => b[1] - a[1]);
@@ -119,33 +132,69 @@ export function GlobeView({ connections }: GlobeViewProps) {
                 weight: loc.totalConns,
                 city: loc.city,
                 country: loc.country,
+                isp: loc.isp,
+                asn: loc.asn,
                 processes: loc.processes,
-                topProcess: topProc
+                topProcess: topProc,
+                connections: loc.rawData // Pass raw connections for Drawer
             };
         });
     }, [uniqueLocations]);
 
     // Rings Data (Security / Threats)
     // Mock logic: Flag IPs from specific "suspicious" countries or random check for demo
-    const ringsData = useMemo(() => {
-        return uniqueLocations
-            .filter(loc => {
-                // Mock Threat Intelligence: Flag "Russia", "China", or "Unknown" for demo (or specific IPs)
-                // In production, check `loc.ips` against a threat set.
-                // For visual V2 demo, let's flag any location with > 10 connections as "High Activity" (Yellow)
-                // And specific countries as "Threat" (Red)
-                // Note: This is just for visualization V2.
-                return loc.totalConns > 20 || ['Russia', 'China', 'North Korea'].includes(loc.country);
-            })
-            .map(loc => ({
-                lat: loc.lat,
-                lng: loc.lon,
-                maxR: 5,
-                propagationSpeed: 2,
-                repeatPeriod: 1000,
-                color: ['Russia', 'China', 'North Korea'].includes(loc.country) ? 'rgba(239, 68, 68, 0.8)' : 'rgba(234, 179, 8, 0.8)' // Red vs Yellow
-            }));
+    // Feature 4: Interactive Pulse (Rings on Data Update)
+    const [rings, setRings] = useState<any[]>([]);
+    const prevLocationsRef = useRef<Map<string, number>>(new Map());
+
+    useEffect(() => {
+        // Optimization: Debounce ring updates to prevent thrashing during high network activity
+        const handler = setTimeout(() => {
+            // Diff current locations with previous to find "new" or "increased" activity
+            const newRings: any[] = [];
+            const currentMap = new Map<string, number>();
+
+            uniqueLocations.forEach(loc => {
+                const key = `${loc.lat},${loc.lon}`;
+                currentMap.set(key, loc.totalConns);
+
+                const prevCount = prevLocationsRef.current.get(key) || 0;
+                if (prevCount < loc.totalConns) {
+                    // New activity detected!
+                    const isThreat = ['Russia', 'China', 'North Korea'].includes(loc.country);
+                    newRings.push({
+                        lat: loc.lat,
+                        lng: loc.lon,
+                        maxR: 8, // Larger burst
+                        propagationSpeed: 4, // Fast pulse
+                        // react-globe.gl rings repeat by default if repeatPeriod is set.
+                        // To do single-shot, we might need to remove them vs infinite pulse.
+                        // For "Live" feel, let's do a fast repeated pulse that decays?
+                        // Or just a standard pulse indicating "Active Traffic"
+                        repeatPeriod: 800,
+                        color: isThreat ? 'rgba(239, 68, 68, 0.9)' : 'rgba(16, 185, 129, 0.9)' // Red vs Emerald
+                    });
+                } else if (loc.totalConns > 0) {
+                    // Persistent low-level pulse for active connections
+                    newRings.push({
+                        lat: loc.lat,
+                        lng: loc.lon,
+                        maxR: 3,
+                        propagationSpeed: 1,
+                        repeatPeriod: 2000,
+                        color: 'rgba(56, 189, 248, 0.3)' // Subtle Sky Blue
+                    });
+                }
+            });
+
+            setRings(newRings);
+            prevLocationsRef.current = currentMap;
+        }, 100); // 100ms debounce
+
+        return () => clearTimeout(handler);
     }, [uniqueLocations]);
+
+    const ringsData = rings;
 
     // Arcs for Data Travel Direction & Volume
     const arcsData = useMemo(() => {
@@ -186,13 +235,62 @@ export function GlobeView({ connections }: GlobeViewProps) {
         });
     }, [uniqueLocations]);
 
-    const handlePointClick = useCallback((point: any) => {
-        if (globeRef.current) {
-            globeRef.current.pointOfView({
-                lat: point.lat,
-                lng: point.lng,
-                altitude: 1.5
-            }, 1500);
+    const handleHexClick = useCallback((hex: any) => {
+        if (!hex || !globeRef.current) return;
+
+        // Fly to location
+        // Find center of hex points
+        const points = hex.points;
+        const centerLat = points.reduce((sum: number, p: any) => sum + p.lat, 0) / points.length;
+        const centerLng = points.reduce((sum: number, p: any) => sum + p.lng, 0) / points.length;
+
+        globeRef.current.pointOfView({
+            lat: centerLat,
+            lng: centerLng,
+            altitude: 1.5
+        }, 1500);
+
+        // Prepare data for Drawer
+        // Merge all connections from all points in this hex
+        const allConnections = points.flatMap((p: any) => p.connections || []);
+
+        // Pick representative metadata (e.g. from the heaviest point)
+        const sortedPoints = points.sort((a: any, b: any) => b.weight - a.weight);
+        const mainPoint = sortedPoints[0];
+
+        setSelectedHex({
+            lat: centerLat,
+            lng: centerLng,
+            city: mainPoint.city,
+            country: mainPoint.country,
+            isp: mainPoint.isp,
+            asn: mainPoint.asn,
+            connCount: hex.sumWeight,
+            labelText: mainPoint.topProcess,
+            type: 'remote',
+            size: 0,
+            color: '',
+            connections: allConnections
+        });
+        setIsDrawerOpen(true);
+    }, []);
+
+    const handleKillProcess = useCallback(async (pid?: number) => {
+        if (!pid) return;
+        // Confirm?
+        // For "Power User" tool, maybe just do it or show simple toast.
+        // We'll just invoke.
+        try {
+            const success = await (window as any).ipcRenderer.invoke('kill-process', pid);
+            if (success) {
+                console.log(`Killed process ${pid}`);
+                // Optimistically remove from UI?
+                // Real data update will handle it shortly.
+            } else {
+                console.error(`Failed to kill ${pid}`);
+            }
+        } catch (e) {
+            console.error("IPC Kill Error", e);
         }
     }, []);
 
@@ -237,8 +335,17 @@ export function GlobeView({ connections }: GlobeViewProps) {
                     ref={globeRef}
                     width={dimensions.width}
                     height={dimensions.height}
-                    // Offline Asset
-                    globeImageUrl="assets/earth-night.jpg"
+                    // Offline Asset or Custom Material
+                    globeMaterial={new THREE.MeshPhongMaterial({
+                        color: '#0f172a', // Slate 900
+                        emissive: '#020617', // Slate 950
+                        emissiveIntensity: 0.1,
+                        shininess: 0.7,
+                        transparent: true,
+                        opacity: 0.9,
+                        // wireframe: true // Optional: enable for full holographic look
+                    })}
+                    // globeImageUrl="assets/earth-night.jpg" // Replaced by Material
 
                     // Hex Binning (Replaces simple Points)
                     hexBinPointsData={hexData}
@@ -248,7 +355,7 @@ export function GlobeView({ connections }: GlobeViewProps) {
                     hexTopColor={() => '#10b981'} // Emerald Top
                     hexSideColor={() => '#064e3b'} // Dark Emerald Side
                     hexBinMerge={true}
-                    onHexClick={handlePointClick}
+                    onHexClick={handleHexClick}
                     onHexHover={(bin: any) => {
                         if (!bin) {
                             setHoveredPoint(null);
@@ -259,12 +366,10 @@ export function GlobeView({ connections }: GlobeViewProps) {
                         const sortedPoints = bin.points.sort((a: any, b: any) => b.weight - a.weight);
                         const mainPoint = sortedPoints[0];
                         const totalConns = bin.sumWeight;
-
-                        // Use pre-calculated topProcess from the main point
                         const topProc = mainPoint.topProcess || 'Unknown';
+                        const isp = mainPoint.isp || 'Unknown ISP';
 
                         // Count unique processes across all points in bin (approximation for Speed)
-                        // Or just use the number of locations merged
                         const mergedCount = bin.points.length;
                         const extraCount = mergedCount > 1 ? ` +${mergedCount - 1} locs` : '';
 
@@ -273,6 +378,8 @@ export function GlobeView({ connections }: GlobeViewProps) {
                             lng: mainPoint.lng,
                             city: mainPoint.city,
                             country: mainPoint.country,
+                            isp: isp,
+                            asn: mainPoint.asn,
                             connCount: totalConns,
                             labelText: `${topProc}${extraCount}`,
                             type: 'remote',
@@ -348,6 +455,13 @@ export function GlobeView({ connections }: GlobeViewProps) {
                                         </div>
                                     </div>
                                 </div>
+                                {hoveredPoint.isp && (
+                                    <div className="mt-2 pt-2 border-t border-slate-700/50">
+                                        <div className="text-[10px] text-slate-500">PROVIDER</div>
+                                        <div className="text-xs text-slate-200 font-medium truncate">{hoveredPoint.isp}</div>
+                                        <div className="text-[10px] text-slate-500 font-mono">{hoveredPoint.asn}</div>
+                                    </div>
+                                )}
                             </div>
                         ) : (
                             <div className="text-xs text-slate-400 italic">
@@ -369,6 +483,68 @@ export function GlobeView({ connections }: GlobeViewProps) {
                     </div>
                 </div>
             </div>
-        </Card>
+
+            {/* Drawer for Selected Hex */}
+            <Drawer
+                isOpen={isDrawerOpen}
+                onClose={() => setIsDrawerOpen(false)}
+                title={selectedHex ? `${selectedHex.city}, ${selectedHex.country}` : 'Location Details'}
+            >
+                {selectedHex && (
+                    <div className="space-y-6">
+                        {/* Header Stats */}
+                        <div className="grid grid-cols-2 gap-3">
+                            <div className="bg-slate-800/50 p-3 rounded-lg border border-slate-700">
+                                <p className="text-xs text-slate-400 mb-1 flex items-center gap-1">
+                                    <GlobeIcon size={12} /> NETWORK
+                                </p>
+                                <p className="text-sm font-semibold text-white truncate" title={selectedHex.isp}>
+                                    {selectedHex.isp || 'Unknown ISP'}
+                                </p>
+                                <p className="text-xs text-slate-500 font-mono">{selectedHex.asn}</p>
+                            </div>
+                            <div className="bg-slate-800/50 p-3 rounded-lg border border-slate-700">
+                                <p className="text-xs text-slate-400 mb-1 flex items-center gap-1">
+                                    <Activity size={12} /> TRAFFIC
+                                </p>
+                                <p className="text-sm font-semibold text-emerald-400">{selectedHex.connCount} Active</p>
+                            </div>
+                        </div>
+
+                        {/* Connection List */}
+                        <div>
+                            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Active Connections</h3>
+                            <div className="space-y-2">
+                                {selectedHex.connections?.map((conn, idx) => (
+                                    <div key={`${conn.pid}-${conn.peerAddress}-${idx}`} className="bg-slate-800/30 p-3 rounded border border-slate-700/50 hover:border-slate-600 transition-colors group">
+                                        <div className="flex justify-between items-start mb-1">
+                                            <div className="font-mono text-sm text-green-400 font-bold">
+                                                {conn.process || 'System'}
+                                            </div>
+                                            <button
+                                                className="text-xs bg-red-500/10 text-red-400 px-2 py-1 rounded hover:bg-red-500 hover:text-white transition-all opacity-0 group-hover:opacity-100 flex items-center gap-1"
+                                                onClick={() => handleKillProcess(conn.pid)}
+                                                title="Kill Process"
+                                            >
+                                                <Zap size={10} /> KILL
+                                            </button>
+                                        </div>
+                                        <div className="text-xs text-slate-400 font-mono mb-1 flex items-center gap-2">
+                                            <span>PID: {conn.pid}</span>
+                                            <span>•</span>
+                                            <span>{conn.protocol}</span>
+                                        </div>
+                                        <div className="flex items-center gap-1 text-[10px] text-slate-500 bg-slate-900/50 px-2 py-1 rounded w-fit font-mono">
+                                            <ExternalLink size={10} />
+                                            {conn.peerAddress}:{conn.peerPort}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                )}
+            </Drawer>
+        </Card >
     )
 }

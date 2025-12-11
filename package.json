@@ -26,6 +26,8 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
+    "@maxmind/geoip2-node": "^6.3.4",
+    "@types/three": "^0.182.0",
     "clsx": "^2.1.0",
     "dexie": "^4.2.1",
     "geoip-lite": "^1.4.10",
@@ -36,6 +38,7 @@
     "recharts": "^2.12.0",
     "systeminformation": "^5.21.22",
     "tailwind-merge": "^2.2.1",
+    "three": "^0.182.0",
     "tree-kill": "^1.2.2"
   },
   "devDependencies": {

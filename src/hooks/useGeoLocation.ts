@@ -6,6 +6,8 @@ interface GeoLocation {
   country: string
   city: string
   ip: string
+  isp?: string
+  asn?: string
 }
 
 // Global cache to persist across component unmounts/remounts
