@@ -1,5 +1,5 @@
 import * as Lucide from 'lucide-react'
-import { formatBytes } from '../../lib/utils'
+import { formatBytes, formatMinutesDuration } from '../../lib/utils'
 
 interface SettingsModalProps {
     isOpen: boolean
@@ -15,13 +15,6 @@ interface SettingsModalProps {
 
 export function SettingsModal({ isOpen, onClose, draft, updateDraft, onSave }: SettingsModalProps) {
     if (!isOpen) return null
-
-    const formatDuration = (minutes: number) => {
-        if (minutes < 1) {
-            return `${Math.round(minutes * 60)} sec`
-        }
-        return `${Number(minutes).toFixed(1).replace(/\.0$/, '')} min`
-    }
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
@@ -63,7 +56,7 @@ export function SettingsModal({ isOpen, onClose, draft, updateDraft, onSave }: S
                                 onChange={(e) => { updateDraft('cooldown', Number(e.target.value) / 60) }}
                                 className="flex-1 accent-emerald-500"
                             />
-                            <span className="w-20 text-right text-sm font-mono text-emerald-400">{formatDuration(draft.cooldown)}</span>
+                            <span className="w-20 text-right text-sm font-mono text-emerald-400">{formatMinutesDuration(draft.cooldown)}</span>
                         </div>
                         <p className="text-xs text-slate-500">Minimum time between consecutive notifications</p>
                     </div>
@@ -80,7 +73,7 @@ export function SettingsModal({ isOpen, onClose, draft, updateDraft, onSave }: S
                                 onChange={(e) => { updateDraft('pauseMinutes', Number(e.target.value) / 60) }}
                                 className="flex-1 accent-amber-500"
                             />
-                            <span className="w-20 text-right text-sm font-mono text-amber-400">{formatDuration(draft.pauseMinutes)}</span>
+                            <span className="w-20 text-right text-sm font-mono text-amber-400">{formatMinutesDuration(draft.pauseMinutes)}</span>
                         </div>
                         <p className="text-xs text-slate-500">How long to suspend telemetry when paused</p>
                     </div>

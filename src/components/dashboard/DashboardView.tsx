@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import * as Lucide from 'lucide-react'
 import { NetworkStat, HistoryPoint, ProcessUsageEntry, Settings, HistoryRange } from '../../types'
-import { formatBytes } from '../../lib/utils'
+import { formatBytes, formatMinutesDuration } from '../../lib/utils'
 import { chartWindow } from '../../lib/constants'
 import { NetworkChart } from './NetworkChart'
 import { ProcessList } from './ProcessList'
@@ -124,7 +124,7 @@ export function DashboardView({
                             <p className="text-lg font-semibold text-white">{formatBytes(settings.threshold)}/s</p>
                         </div>
                         <div className="flex-1 space-y-2 text-sm text-slate-300">
-                            <p>Notifications muted for {settings.cooldownMinutes} min cooldown.</p>
+                            <p>Notifications muted for {formatMinutesDuration(settings.cooldownMinutes)} cooldown.</p>
                             <p>Last alert: {alertLog[0]?.time || 'No alerts yet'}</p>
                         </div>
                     </div>
