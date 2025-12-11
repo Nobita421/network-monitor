@@ -18,10 +18,10 @@ electron.contextBridge.exposeInMainWorld("ipcRenderer", {
     return electron.ipcRenderer.invoke(channel, ...omit);
   },
   // Specific APIs
-  getNetworkStats: () => electron.ipcRenderer.invoke("get-network-stats"),
+  getTrafficStats: () => electron.ipcRenderer.invoke("get-traffic-stats"),
   getNetworkConnections: () => electron.ipcRenderer.invoke("get-network-connections"),
-  getProcessUsage: () => electron.ipcRenderer.invoke("get-process-usage"),
+  // getProcessUsage is deprecated, logic moved to renderer
   killProcess: (pid) => electron.ipcRenderer.invoke("kill-process", pid),
-  getIpLocation: (ip) => electron.ipcRenderer.invoke("get-ip-location", ip),
+  getIpLocations: (ips) => electron.ipcRenderer.invoke("get-ip-locations", ips),
   toggleOverlay: () => electron.ipcRenderer.invoke("toggle-overlay")
 });

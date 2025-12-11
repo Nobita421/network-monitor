@@ -6,7 +6,16 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build && electron-builder",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "preinstall": "npx only-allow pnpm"
+  },
+  "build": {
+    "extraResources": [
+      {
+        "from": "node_modules/geoip-lite/data",
+        "to": "data"
+      }
+    ]
   },
   "keywords": [
     "network",

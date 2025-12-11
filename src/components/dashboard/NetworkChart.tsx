@@ -63,9 +63,26 @@ export function NetworkChart({ history, range, onRangeChange }: NetworkChartProp
                         <Tooltip
                             contentStyle={{ backgroundColor: '#0f172a', borderColor: '#1e293b' }}
                             formatter={(value: number) => [`${formatBytes(value)}/s`, 'Speed']}
+                            isAnimationActive={false}
                         />
-                        <Area type="monotone" dataKey="rx" stroke="#22c55e" fillOpacity={1} fill="url(#colorRx)" name="Download" />
-                        <Area type="monotone" dataKey="tx" stroke="#38bdf8" fillOpacity={1} fill="url(#colorTx)" name="Upload" />
+                        <Area 
+                            type="monotone" 
+                            dataKey="rx" 
+                            stroke="#22c55e" 
+                            fillOpacity={1} 
+                            fill="url(#colorRx)" 
+                            name="Download" 
+                            isAnimationActive={false}
+                        />
+                        <Area 
+                            type="monotone" 
+                            dataKey="tx" 
+                            stroke="#38bdf8" 
+                            fillOpacity={1} 
+                            fill="url(#colorTx)" 
+                            name="Upload" 
+                            isAnimationActive={false}
+                        />
                     </AreaChart>
                 </ResponsiveContainer>
             </div>

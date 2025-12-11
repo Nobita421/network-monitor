@@ -41,3 +41,10 @@ body {
 ::-webkit-scrollbar-thumb:hover {
   background: rgba(148, 163, 184, 0.7);
 }
+
+/* Performance Optimization for Large Lists */
+.virtual-row {
+  content-visibility: auto;
+  contain-intrinsic-size: 48px; /* Approximate height of a row */
+}
+

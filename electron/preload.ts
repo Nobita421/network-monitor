@@ -20,10 +20,10 @@ contextBridge.exposeInMainWorld('ipcRenderer', {
   },
 
   // Specific APIs
-  getNetworkStats: () => ipcRenderer.invoke('get-network-stats'),
+  getTrafficStats: () => ipcRenderer.invoke('get-traffic-stats'),
   getNetworkConnections: () => ipcRenderer.invoke('get-network-connections'),
-  getProcessUsage: () => ipcRenderer.invoke('get-process-usage'),
+  // getProcessUsage is deprecated, logic moved to renderer
   killProcess: (pid: number) => ipcRenderer.invoke('kill-process', pid),
-  getIpLocation: (ip: string) => ipcRenderer.invoke('get-ip-location', ip),
+  getIpLocations: (ips: string[]) => ipcRenderer.invoke('get-ip-locations', ips),
   toggleOverlay: () => ipcRenderer.invoke('toggle-overlay'),
 })

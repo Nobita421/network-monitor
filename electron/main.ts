@@ -2,7 +2,16 @@ import { app, BrowserWindow, ipcMain } from 'electron'
 import path from 'node:path'
 import si from 'systeminformation'
 import kill from 'tree-kill'
-import geoip from 'geoip-lite'
+// Configure geoip-lite data directory
+if (app.isPackaged) {
+  // In production, use the resources directory
+  (global as any).geodatadir = path.join(process.resourcesPath, 'data')
+} else {
+  // In development, use the node_modules directory
+  (global as any).geodatadir = path.join(__dirname, '../node_modules/geoip-lite/data')
+}
+
+const geoip = require('geoip-lite')
 
 // The built directory structure
 //
@@ -103,16 +112,14 @@ app.whenReady().then(() => {
   createWindow()
 
   // IPC Handlers
-  ipcMain.handle('get-network-stats', async () => {
+  ipcMain.handle('get-traffic-stats', async () => {
     try {
       const networkStats = await si.networkStats();
-      // We usually want the first active interface or all of them
-      // For simplicity, let's return the default interface or the one with traffic
       const defaultInterface = await si.networkInterfaceDefault();
       const stats = networkStats.find(iface => iface.iface === defaultInterface) || networkStats[0];
       return stats;
     } catch (error) {
-      console.error("Error fetching network stats:", error);
+      console.error("Error fetching traffic stats:", error);
       return null;
     }
   });
@@ -127,61 +134,9 @@ app.whenReady().then(() => {
     }
   });
 
-  ipcMain.handle('get-process-usage', async () => {
-    try {
-      const [connections, networkStats, defaultInterface] = await Promise.all([
-        si.networkConnections(),
-        si.networkStats(),
-        si.networkInterfaceDefault(),
-      ]);
-
-      const ifaceStats = networkStats.find((iface) => iface.iface === defaultInterface) || networkStats[0];
-      const rxSec = ifaceStats?.rx_sec || 0;
-      const txSec = ifaceStats?.tx_sec || 0;
-
-      const aggregated = new Map<number, { name: string; pid: number; connections: number; tcp: number; udp: number }>();
-
-      connections.forEach((conn) => {
-        const pid = typeof conn.pid === 'number' ? conn.pid : -1;
-        const existing = aggregated.get(pid) || { name: conn.process || 'System', pid, connections: 0, tcp: 0, udp: 0 };
-        existing.connections += 1;
-        const protocol = (conn.protocol || '').toLowerCase();
-        if (protocol.startsWith('tcp')) {
-          existing.tcp += 1;
-        } else if (protocol.startsWith('udp')) {
-          existing.udp += 1;
-        }
-        existing.name = conn.process || existing.name;
-        aggregated.set(pid, existing);
-      });
-
-      const totals = Array.from(aggregated.values());
-      const connectionTotal = totals.reduce((sum, entry) => sum + entry.connections, 0) || 1;
-
-      const ranked = totals
-        .map((entry) => {
-          const ratio = entry.connections / connectionTotal;
-          return {
-            pid: entry.pid,
-            name: entry.name,
-            connections: entry.connections,
-            tcp: entry.tcp,
-            udp: entry.udp,
-            rx: rxSec * ratio,
-            tx: txSec * ratio,
-            activityScore: ratio,
-          };
-        })
-        .sort((a, b) => b.activityScore - a.activityScore)
-        .slice(0, 8);
-
-      return ranked;
-    } catch (error) {
-      console.error('Error fetching process usage:', error);
-      return [];
-    }
-  });
-
+  // Deprecated: get-process-usage is too heavy to run frequently.
+  // We will calculate this in the renderer or a worker using the connections list.
+  
   ipcMain.handle('kill-process', async (_event, pid: number) => {
     return new Promise((resolve) => {
       if (!pid || pid === -1) {
@@ -199,13 +154,24 @@ app.whenReady().then(() => {
     })
   })
 
-  ipcMain.handle('get-ip-location', async (_event, ip: string) => {
+  ipcMain.handle('get-ip-locations', async (_event, ips: string[]) => {
     try {
-      const geo = geoip.lookup(ip)
-      return geo ? { lat: geo.ll[0], lon: geo.ll[1], country: geo.country, city: geo.city } : null
+      // Deduplicate IPs to save processing
+      const uniqueIps = [...new Set(ips)];
+      const results: Record<string, any> = {};
+      
+      for (const ip of uniqueIps) {
+        const geo = geoip.lookup(ip);
+        if (geo) {
+          results[ip] = { lat: geo.ll[0], lon: geo.ll[1], country: geo.country, city: geo.city };
+        } else {
+          results[ip] = null;
+        }
+      }
+      return results;
     } catch (error) {
-      console.error(`Failed to lookup IP ${ip}:`, error)
-      return null
+      console.error(`Failed to lookup IPs:`, error);
+      return {};
     }
   })
 

@@ -1,6 +1,6 @@
 "use strict";
 const electron = require("electron");
-const path$5 = require("node:path");
+const path$3 = require("node:path");
 const require$$0$1 = require("os");
 const require$$1$1 = require("fs");
 const require$$2 = require("path");
@@ -9,7 +9,6 @@ const require$$4 = require("util");
 const require$$5 = require("https");
 const require$$6 = require("http");
 const require$$0$2 = require("net");
-var commonjsGlobal = typeof globalThis !== "undefined" ? globalThis : typeof window !== "undefined" ? window : typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : {};
 function getDefaultExportFromCjs(x) {
   return x && x.__esModule && Object.prototype.hasOwnProperty.call(x, "default") ? x["default"] : x;
 }
@@ -20,8 +19,8 @@ const require$$0 = {
 };
 var util$j = {};
 const os$8 = require$$0$1;
-const fs$c = require$$1$1;
-const path$4 = require$$2;
+const fs$a = require$$1$1;
+const path$2 = require$$2;
 const spawn$1 = require$$1.spawn;
 const exec$h = require$$1.exec;
 const execSync$b = require$$1.execSync;
@@ -317,7 +316,7 @@ function getPowershell() {
   _powerShell = "powershell.exe";
   if (_windows$h) {
     const defaultPath = `${WINDIR}\\system32\\WindowsPowerShell\\v1.0\\powershell.exe`;
-    if (fs$c.existsSync(defaultPath)) {
+    if (fs$a.existsSync(defaultPath)) {
       _powerShell = defaultPath;
     }
   }
@@ -325,7 +324,7 @@ function getPowershell() {
 function getWmic() {
   if (os$8.type() === "Windows_NT" && !wmicPath) {
     wmicPath = WINDIR + "\\system32\\wbem\\wmic.exe";
-    if (!fs$c.existsSync(wmicPath)) {
+    if (!fs$a.existsSync(wmicPath)) {
       try {
         const wmicPathArray = execSync$b("WHERE WMIC", execOptsWin).toString().split("\r\n");
         if (wmicPathArray && wmicPathArray.length) {
@@ -602,7 +601,7 @@ function isRaspberry(cpuinfo) {
     cpuinfo = _rpi_cpuinfo;
   } else if (cpuinfo === void 0) {
     try {
-      cpuinfo = fs$c.readFileSync("/proc/cpuinfo", { encoding: "utf8" }).toString().split("\n");
+      cpuinfo = fs$a.readFileSync("/proc/cpuinfo", { encoding: "utf8" }).toString().split("\n");
       _rpi_cpuinfo = cpuinfo;
     } catch (e) {
       return false;
@@ -615,7 +614,7 @@ function isRaspberry(cpuinfo) {
 function isRaspbian() {
   let osrelease = [];
   try {
-    osrelease = fs$c.readFileSync("/etc/os-release", { encoding: "utf8" }).toString().split("\n");
+    osrelease = fs$a.readFileSync("/etc/os-release", { encoding: "utf8" }).toString().split("\n");
   } catch (e) {
     return false;
   }
@@ -633,9 +632,9 @@ function execWin(cmd, opts, callback) {
   });
 }
 function darwinXcodeExists() {
-  const cmdLineToolsExists = fs$c.existsSync("/Library/Developer/CommandLineTools/usr/bin/");
-  const xcodeAppExists = fs$c.existsSync("/Applications/Xcode.app/Contents/Developer/Tools");
-  const xcodeExists = fs$c.existsSync("/Library/Developer/Xcode/");
+  const cmdLineToolsExists = fs$a.existsSync("/Library/Developer/CommandLineTools/usr/bin/");
+  const xcodeAppExists = fs$a.existsSync("/Applications/Xcode.app/Contents/Developer/Tools");
+  const xcodeExists = fs$a.existsSync("/Library/Developer/Xcode/");
   return cmdLineToolsExists || xcodeExists || xcodeAppExists;
 }
 function nanoSeconds() {
@@ -753,9 +752,9 @@ function hex2bin(hex) {
   return ("00000000" + parseInt(hex, 16).toString(2)).substr(-8);
 }
 function getFilesInPath(source) {
-  const lstatSync = fs$c.lstatSync;
-  const readdirSync = fs$c.readdirSync;
-  const join = path$4.join;
+  const lstatSync = fs$a.lstatSync;
+  const readdirSync = fs$a.readdirSync;
+  const join = path$2.join;
   function isDirectory(source2) {
     return lstatSync(source2).isDirectory();
   }
@@ -785,7 +784,7 @@ function getFilesInPath(source) {
       return [];
     }
   }
-  if (fs$c.existsSync(source)) {
+  if (fs$a.existsSync(source)) {
     return getFilesRecursively(source);
   } else {
     return [];
@@ -1001,7 +1000,7 @@ function getRpiGpu(cpuinfo) {
     cpuinfo = _rpi_cpuinfo;
   } else {
     try {
-      cpuinfo = fs$c.readFileSync("/proc/cpuinfo", { encoding: "utf8" }).toString().split("\n");
+      cpuinfo = fs$a.readFileSync("/proc/cpuinfo", { encoding: "utf8" }).toString().split("\n");
       _rpi_cpuinfo = cpuinfo;
     } catch (e) {
       return false;
@@ -2566,7 +2565,7 @@ util$j.getPowershell = getPowershell;
 var system$1 = {};
 var osinfo = {};
 const os$7 = require$$0$1;
-const fs$b = require$$1$1;
+const fs$9 = require$$1$1;
 const util$h = util$j;
 const exec$g = require$$1.exec;
 const execSync$a = require$$1.execSync;
@@ -2899,7 +2898,7 @@ osinfo.osInfo = osInfo;
 function isUefiLinux() {
   return new Promise((resolve) => {
     process.nextTick(() => {
-      fs$b.stat("/sys/firmware/efi", function(err) {
+      fs$9.stat("/sys/firmware/efi", function(err) {
         if (!err) {
           return resolve(true);
         } else {
@@ -3139,7 +3138,7 @@ function versions(apps, callback) {
         }
         if ({}.hasOwnProperty.call(appsObj.versions, "git")) {
           if (_darwin$f) {
-            const gitHomebrewExists = fs$b.existsSync("/usr/local/Cellar/git") || fs$b.existsSync("/opt/homebrew/bin/git");
+            const gitHomebrewExists = fs$9.existsSync("/usr/local/Cellar/git") || fs$9.existsSync("/opt/homebrew/bin/git");
             if (util$h.darwinXcodeExists() || gitHomebrewExists) {
               exec$g("git --version", function(error, stdout) {
                 if (!error) {
@@ -3334,8 +3333,8 @@ function versions(apps, callback) {
               const stdout = execSync$a("sw_vers");
               const lines = stdout.toString().split("\n");
               const osVersion = util$h.getValue(lines, "ProductVersion", ":");
-              const gitHomebrewExists1 = fs$b.existsSync("/usr/local/Cellar/python");
-              const gitHomebrewExists2 = fs$b.existsSync("/opt/homebrew/bin/python");
+              const gitHomebrewExists1 = fs$9.existsSync("/usr/local/Cellar/python");
+              const gitHomebrewExists2 = fs$9.existsSync("/opt/homebrew/bin/python");
               if (util$h.darwinXcodeExists() && util$h.semverCompare("12.0.1", osVersion) < 0 || gitHomebrewExists1 || gitHomebrewExists2) {
                 const cmd2 = gitHomebrewExists1 ? "/usr/local/Cellar/python -V 2>&1" : gitHomebrewExists2 ? "/opt/homebrew/bin/python -V 2>&1" : "python -V 2>&1";
                 exec$g(cmd2, function(error, stdout2) {
@@ -3363,7 +3362,7 @@ function versions(apps, callback) {
         }
         if ({}.hasOwnProperty.call(appsObj.versions, "python3")) {
           if (_darwin$f) {
-            const gitHomebrewExists = fs$b.existsSync("/usr/local/Cellar/python3") || fs$b.existsSync("/opt/homebrew/bin/python3");
+            const gitHomebrewExists = fs$9.existsSync("/usr/local/Cellar/python3") || fs$9.existsSync("/opt/homebrew/bin/python3");
             if (util$h.darwinXcodeExists() || gitHomebrewExists) {
               exec$g("python3 -V 2>&1", function(error, stdout) {
                 if (!error) {
@@ -3387,7 +3386,7 @@ function versions(apps, callback) {
         }
         if ({}.hasOwnProperty.call(appsObj.versions, "pip")) {
           if (_darwin$f) {
-            const gitHomebrewExists = fs$b.existsSync("/usr/local/Cellar/pip") || fs$b.existsSync("/opt/homebrew/bin/pip");
+            const gitHomebrewExists = fs$9.existsSync("/usr/local/Cellar/pip") || fs$9.existsSync("/opt/homebrew/bin/pip");
             if (util$h.darwinXcodeExists() || gitHomebrewExists) {
               exec$g("pip -V 2>&1", function(error, stdout) {
                 if (!error) {
@@ -3413,7 +3412,7 @@ function versions(apps, callback) {
         }
         if ({}.hasOwnProperty.call(appsObj.versions, "pip3")) {
           if (_darwin$f) {
-            const gitHomebrewExists = fs$b.existsSync("/usr/local/Cellar/pip3") || fs$b.existsSync("/opt/homebrew/bin/pip3");
+            const gitHomebrewExists = fs$9.existsSync("/usr/local/Cellar/pip3") || fs$9.existsSync("/opt/homebrew/bin/pip3");
             if (util$h.darwinXcodeExists() || gitHomebrewExists) {
               exec$g("pip3 -V 2>&1", function(error, stdout) {
                 if (!error) {
@@ -3714,7 +3713,7 @@ echo -n "hardware: "; cat /sys/class/dmi/id/product_uuid 2> /dev/null; echo;`;
           result2.os = util$h.getValue(lines, "os").toLowerCase();
           result2.hardware = util$h.getValue(lines, "hardware").toLowerCase();
           if (!result2.hardware) {
-            const lines2 = fs$b.readFileSync("/proc/cpuinfo", { encoding: "utf8" }).toString().split("\n");
+            const lines2 = fs$9.readFileSync("/proc/cpuinfo", { encoding: "utf8" }).toString().split("\n");
             const serial = util$h.getValue(lines2, "serial");
             result2.hardware = serial || "";
           }
@@ -3763,7 +3762,7 @@ echo -n "hardware: "; cat /sys/class/dmi/id/product_uuid 2> /dev/null; echo;`;
   });
 }
 osinfo.uuid = uuid$1;
-const fs$a = require$$1$1;
+const fs$8 = require$$1$1;
 const os$6 = require$$0$1;
 const util$g = util$j;
 const { uuid } = osinfo;
@@ -3918,7 +3917,7 @@ function system(callback) {
               util$g.noop();
             }
           }
-          if (fs$a.existsSync("/.dockerenv") || fs$a.existsSync("/.dockerinit")) {
+          if (fs$8.existsSync("/.dockerenv") || fs$8.existsSync("/.dockerinit")) {
             result2.model = "Docker Container";
           }
           try {
@@ -3946,7 +3945,7 @@ function system(callback) {
             util$g.noop();
           }
           if (result2.manufacturer === "" && result2.model === "Computer" && result2.version === "") {
-            fs$a.readFile("/proc/cpuinfo", function(error2, stdout2) {
+            fs$8.readFile("/proc/cpuinfo", function(error2, stdout2) {
               if (!error2) {
                 let lines2 = stdout2.toString().split("\n");
                 result2.model = util$g.getValue(lines2, "hardware", ":", true).toUpperCase();
@@ -4544,7 +4543,7 @@ var cpu$1 = {};
 const os$5 = require$$0$1;
 const exec$e = require$$1.exec;
 const execSync$8 = require$$1.execSync;
-const fs$9 = require$$1$1;
+const fs$7 = require$$1$1;
 const util$f = util$j;
 let _platform$e = process.platform;
 const _linux$d = _platform$e === "linux" || _platform$e === "android";
@@ -5329,7 +5328,7 @@ function getCpu() {
               result2.socket = "SOC";
             }
             if (util$f.getValue(lines, "architecture") === "riscv64") {
-              const linesRiscV = fs$9.readFileSync("/proc/cpuinfo").toString().split("\n");
+              const linesRiscV = fs$7.readFileSync("/proc/cpuinfo").toString().split("\n");
               const uarch = util$f.getValue(linesRiscV, "uarch") || "";
               if (uarch.indexOf(",") > -1) {
                 const split = uarch.split(",");
@@ -5720,9 +5719,9 @@ function cpuTemperature(callback) {
                   return;
                 }
               }
-              fs$9.stat("/sys/class/thermal/thermal_zone0/temp", function(err) {
+              fs$7.stat("/sys/class/thermal/thermal_zone0/temp", function(err) {
                 if (err === null) {
-                  fs$9.readFile("/sys/class/thermal/thermal_zone0/temp", function(error3, stdout3) {
+                  fs$7.readFile("/sys/class/thermal/thermal_zone0/temp", function(error3, stdout3) {
                     if (!error3) {
                       let lines2 = stdout3.toString().split("\n");
                       if (lines2.length > 0) {
@@ -5930,7 +5929,7 @@ function cpuFlags(callback) {
               });
             }
             if (!result2) {
-              fs$9.readFile("/proc/cpuinfo", function(error2, stdout2) {
+              fs$7.readFile("/proc/cpuinfo", function(error2, stdout2) {
                 if (!error2) {
                   let lines = stdout2.toString().split("\n");
                   result2 = util$f.getValue(lines, "features", ":", true).toLowerCase();
@@ -6428,7 +6427,7 @@ const os$4 = require$$0$1;
 const exec$d = require$$1.exec;
 const execSync$7 = require$$1.execSync;
 const util$e = util$j;
-const fs$8 = require$$1$1;
+const fs$6 = require$$1$1;
 let _platform$d = process.platform;
 const _linux$c = _platform$d === "linux" || _platform$d === "android";
 const _darwin$c = _platform$d === "darwin";
@@ -6490,7 +6489,7 @@ function mem(callback) {
       };
       if (_linux$c) {
         try {
-          fs$8.readFile("/proc/meminfo", function(error, stdout) {
+          fs$6.readFile("/proc/meminfo", function(error, stdout) {
             if (!error) {
               const lines = stdout.toString().split("\n");
               result2.total = parseInt(util$e.getValue(lines, "memtotal"), 10);
@@ -6903,7 +6902,7 @@ function memLayout(callback) {
 }
 memory.memLayout = memLayout;
 const exec$c = require$$1.exec;
-const fs$7 = require$$1$1;
+const fs$5 = require$$1$1;
 const util$d = util$j;
 let _platform$c = process.platform;
 const _linux$b = _platform$c === "linux" || _platform$c === "android";
@@ -6956,24 +6955,24 @@ var battery = function(callback) {
       };
       if (_linux$b) {
         let battery_path = "";
-        if (fs$7.existsSync("/sys/class/power_supply/BAT1/uevent")) {
+        if (fs$5.existsSync("/sys/class/power_supply/BAT1/uevent")) {
           battery_path = "/sys/class/power_supply/BAT1/";
-        } else if (fs$7.existsSync("/sys/class/power_supply/BAT0/uevent")) {
+        } else if (fs$5.existsSync("/sys/class/power_supply/BAT0/uevent")) {
           battery_path = "/sys/class/power_supply/BAT0/";
         }
         let acConnected = false;
         let acPath = "";
-        if (fs$7.existsSync("/sys/class/power_supply/AC/online")) {
+        if (fs$5.existsSync("/sys/class/power_supply/AC/online")) {
           acPath = "/sys/class/power_supply/AC/online";
-        } else if (fs$7.existsSync("/sys/class/power_supply/AC0/online")) {
+        } else if (fs$5.existsSync("/sys/class/power_supply/AC0/online")) {
           acPath = "/sys/class/power_supply/AC0/online";
         }
         if (acPath) {
-          const file = fs$7.readFileSync(acPath);
+          const file = fs$5.readFileSync(acPath);
           acConnected = file.toString().trim() === "1";
         }
         if (battery_path) {
-          fs$7.readFile(battery_path + "uevent", function(error, stdout) {
+          fs$5.readFile(battery_path + "uevent", function(error, stdout) {
             if (!error) {
               let lines = stdout.toString().split("\n");
               result2.isCharging = util$d.getValue(lines, "POWER_SUPPLY_STATUS", "=").toLowerCase() === "charging";
@@ -7192,7 +7191,7 @@ var battery = function(callback) {
   });
 };
 var graphics$1 = {};
-const fs$6 = require$$1$1;
+const fs$4 = require$$1$1;
 const exec$b = require$$1.exec;
 const execSync$6 = require$$1.execSync;
 const util$c = util$j;
@@ -7556,12 +7555,12 @@ function graphics(callback) {
     if (_windows$b) {
       try {
         const basePath = util$c.WINDIR + "\\System32\\DriverStore\\FileRepository";
-        const candidateDirs = fs$6.readdirSync(basePath).filter((dir) => {
-          return fs$6.readdirSync([basePath, dir].join("/")).includes("nvidia-smi.exe");
+        const candidateDirs = fs$4.readdirSync(basePath).filter((dir) => {
+          return fs$4.readdirSync([basePath, dir].join("/")).includes("nvidia-smi.exe");
         });
         const targetDir = candidateDirs.reduce((prevDir, currentDir) => {
-          const previousNvidiaSmi = fs$6.statSync([basePath, prevDir, "nvidia-smi.exe"].join("/"));
-          const currentNvidiaSmi = fs$6.statSync([basePath, currentDir, "nvidia-smi.exe"].join("/"));
+          const previousNvidiaSmi = fs$4.statSync([basePath, prevDir, "nvidia-smi.exe"].join("/"));
+          const currentNvidiaSmi = fs$4.statSync([basePath, currentDir, "nvidia-smi.exe"].join("/"));
           return previousNvidiaSmi.ctimeMs > currentNvidiaSmi.ctimeMs ? prevDir : currentDir;
         });
         if (targetDir) {
@@ -8257,7 +8256,7 @@ function graphics(callback) {
 graphics$1.graphics = graphics;
 var filesystem = {};
 const util$b = util$j;
-const fs$5 = require$$1$1;
+const fs$3 = require$$1$1;
 const exec$a = require$$1.exec;
 const execSync$5 = require$$1.execSync;
 const execPromiseSave = util$b.promisifySave(require$$1.exec);
@@ -8495,7 +8494,7 @@ function fsOpenFiles(callback) {
         });
       }
       if (_linux$9) {
-        fs$5.readFile("/proc/sys/fs/file-nr", function(error, stdout) {
+        fs$3.readFile("/proc/sys/fs/file-nr", function(error, stdout) {
           if (!error) {
             let lines = stdout.toString().split("\n");
             if (lines[0]) {
@@ -8514,7 +8513,7 @@ function fsOpenFiles(callback) {
             }
             resolve(result2);
           } else {
-            fs$5.readFile("/proc/sys/fs/file-max", function(error2, stdout2) {
+            fs$3.readFile("/proc/sys/fs/file-max", function(error2, stdout2) {
               if (!error2) {
                 let lines = stdout2.toString().split("\n");
                 if (lines[0]) {
@@ -9752,7 +9751,7 @@ var network = {};
 const os$3 = require$$0$1;
 const exec$9 = require$$1.exec;
 const execSync$4 = require$$1.execSync;
-const fs$4 = require$$1$1;
+const fs$2 = require$$1$1;
 const util$a = util$j;
 let _platform$9 = process.platform;
 const _linux$8 = _platform$9 === "linux" || _platform$9 === "android";
@@ -10931,7 +10930,7 @@ function networkStatsSingle(iface) {
       let cmd, lines, stats;
       if (!_network[ifaceSanitized] || _network[ifaceSanitized] && !_network[ifaceSanitized].ms || _network[ifaceSanitized] && _network[ifaceSanitized].ms && Date.now() - _network[ifaceSanitized].ms >= 500) {
         if (_linux$8) {
-          if (fs$4.existsSync("/sys/class/net/" + ifaceSanitized)) {
+          if (fs$2.existsSync("/sys/class/net/" + ifaceSanitized)) {
             cmd = "cat /sys/class/net/" + ifaceSanitized + "/operstate; cat /sys/class/net/" + ifaceSanitized + "/statistics/rx_bytes; cat /sys/class/net/" + ifaceSanitized + "/statistics/tx_bytes; cat /sys/class/net/" + ifaceSanitized + "/statistics/rx_dropped; cat /sys/class/net/" + ifaceSanitized + "/statistics/rx_errors; cat /sys/class/net/" + ifaceSanitized + "/statistics/tx_dropped; cat /sys/class/net/" + ifaceSanitized + "/statistics/tx_errors; ";
             exec$9(cmd, function(error, stdout) {
               if (!error) {
@@ -12221,8 +12220,8 @@ function wifiInterfaces(callback) {
 wifi.wifiInterfaces = wifiInterfaces;
 var processes$1 = {};
 const os$1 = require$$0$1;
-const fs$3 = require$$1$1;
-const path$3 = require$$2;
+const fs$1 = require$$1$1;
+const path$1 = require$$2;
 const exec$7 = require$$1.exec;
 const execSync$2 = require$$1.execSync;
 const util$8 = util$j;
@@ -12788,7 +12787,7 @@ function processes(callback) {
           }
           if (firstPos === 1e4 && tmpCommand.indexOf(" ") > -1) {
             const parts = tmpCommand.split(" ");
-            if (fs$3.existsSync(path$3.join(cmdPath, parts[0]))) {
+            if (fs$1.existsSync(path$1.join(cmdPath, parts[0]))) {
               command = parts.shift();
               params = (parts.join(" ") + " " + tmpParams).trim();
             } else {
@@ -13989,13 +13988,13 @@ function inetLatency(host, callback) {
 }
 internet.inetLatency = inetLatency;
 var docker = {};
-const net$1 = require$$0$2;
+const net = require$$0$2;
 const isWin = require$$0$1.type() === "Windows_NT";
 const socketPath = isWin ? "//./pipe/docker_engine" : "/var/run/docker.sock";
 let DockerSocket$1 = class DockerSocket {
   getInfo(callback) {
     try {
-      let socket = net$1.createConnection({ path: socketPath });
+      let socket = net.createConnection({ path: socketPath });
       let alldata = "";
       let data;
       socket.on("connect", () => {
@@ -14025,7 +14024,7 @@ let DockerSocket$1 = class DockerSocket {
   }
   listImages(all, callback) {
     try {
-      let socket = net$1.createConnection({ path: socketPath });
+      let socket = net.createConnection({ path: socketPath });
       let alldata = "";
       let data;
       socket.on("connect", () => {
@@ -14057,7 +14056,7 @@ let DockerSocket$1 = class DockerSocket {
     id = id || "";
     if (id) {
       try {
-        let socket = net$1.createConnection({ path: socketPath });
+        let socket = net.createConnection({ path: socketPath });
         let alldata = "";
         let data;
         socket.on("connect", () => {
@@ -14090,7 +14089,7 @@ let DockerSocket$1 = class DockerSocket {
   }
   listContainers(all, callback) {
     try {
-      let socket = net$1.createConnection({ path: socketPath });
+      let socket = net.createConnection({ path: socketPath });
       let alldata = "";
       let data;
       socket.on("connect", () => {
@@ -14122,7 +14121,7 @@ let DockerSocket$1 = class DockerSocket {
     id = id || "";
     if (id) {
       try {
-        let socket = net$1.createConnection({ path: socketPath });
+        let socket = net.createConnection({ path: socketPath });
         let alldata = "";
         let data;
         socket.on("connect", () => {
@@ -14157,7 +14156,7 @@ let DockerSocket$1 = class DockerSocket {
     id = id || "";
     if (id) {
       try {
-        let socket = net$1.createConnection({ path: socketPath });
+        let socket = net.createConnection({ path: socketPath });
         let alldata = "";
         let data;
         socket.on("connect", () => {
@@ -14192,7 +14191,7 @@ let DockerSocket$1 = class DockerSocket {
     id = id || "";
     if (id) {
       try {
-        let socket = net$1.createConnection({ path: socketPath });
+        let socket = net.createConnection({ path: socketPath });
         let alldata = "";
         let data;
         socket.on("connect", () => {
@@ -14225,7 +14224,7 @@ let DockerSocket$1 = class DockerSocket {
   }
   listVolumes(callback) {
     try {
-      let socket = net$1.createConnection({ path: socketPath });
+      let socket = net.createConnection({ path: socketPath });
       let alldata = "";
       let data;
       socket.on("connect", () => {
@@ -16842,10 +16841,10 @@ var bluetoothVendors$1 = {
 };
 const exec$1 = require$$1.exec;
 const execSync = require$$1.execSync;
-const path$2 = require$$2;
+const path = require$$2;
 const util = util$j;
 const bluetoothVendors = bluetoothVendors$1;
-const fs$2 = require$$1$1;
+const fs = require$$1$1;
 let _platform = process.platform;
 const _linux = _platform === "linux" || _platform === "android";
 const _darwin = _platform === "darwin";
@@ -16965,12 +16964,12 @@ function bluetoothDevices(callback) {
       if (_linux) {
         const btFiles = util.getFilesInPath("/var/lib/bluetooth/");
         btFiles.forEach((element) => {
-          const filename = path$2.basename(element);
+          const filename = path.basename(element);
           const pathParts = element.split("/");
           const macAddr1 = pathParts.length >= 6 ? pathParts[pathParts.length - 2] : null;
           const macAddr2 = pathParts.length >= 7 ? pathParts[pathParts.length - 3] : null;
           if (filename === "info") {
-            const infoFile = fs$2.readFileSync(element, { encoding: "utf8" }).split("\n");
+            const infoFile = fs.readFileSync(element, { encoding: "utf8" }).split("\n");
             result2.push(parseLinuxBluetoothInfo(infoFile, macAddr1, macAddr2));
           }
         });
@@ -17565,2473 +17564,14 @@ function buildProcessTree(parentPid, tree, pidsToProcess, spawnChildProcessesLis
   ps.on("close", onClose);
 }
 const kill = /* @__PURE__ */ getDefaultExportFromCjs(treeKill);
-var utils$2 = { exports: {} };
-var utils$1 = utils$2.exports = {};
-utils$1.aton4 = function(a) {
-  a = a.split(/\./);
-  return (parseInt(a[0], 10) << 24 >>> 0) + (parseInt(a[1], 10) << 16 >>> 0) + (parseInt(a[2], 10) << 8 >>> 0) + (parseInt(a[3], 10) >>> 0);
-};
-utils$1.aton6 = function(a) {
-  a = a.replace(/"/g, "").split(/:/);
-  var l = a.length - 1;
-  var i;
-  if (a[l] === "") {
-    a[l] = 0;
-  }
-  if (l < 7) {
-    a.length = 8;
-    for (i = l; i >= 0 && a[i] !== ""; i--) {
-      a[7 - l + i] = a[i];
-    }
-  }
-  for (i = 0; i < 8; i++) {
-    if (!a[i]) {
-      a[i] = 0;
-    } else {
-      a[i] = parseInt(a[i], 16);
-    }
-  }
-  var r = [];
-  for (i = 0; i < 4; i++) {
-    r.push((a[2 * i] << 16) + a[2 * i + 1] >>> 0);
-  }
-  return r;
-};
-utils$1.cmp = function(a, b) {
-  if (typeof a === "number" && typeof b === "number") {
-    return a < b ? -1 : a > b ? 1 : 0;
-  }
-  if (a instanceof Array && b instanceof Array) {
-    return this.cmp6(a, b);
-  }
-  return null;
-};
-utils$1.cmp6 = function(a, b) {
-  for (var ii = 0; ii < 2; ii++) {
-    if (a[ii] < b[ii]) {
-      return -1;
-    }
-    if (a[ii] > b[ii]) {
-      return 1;
-    }
-  }
-  return 0;
-};
-utils$1.isPrivateIP = function(addr) {
-  addr = addr.toString();
-  return addr.match(/^10\.([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1,3})/) != null || addr.match(/^192\.168\.([0-9]{1,3})\.([0-9]{1,3})/) != null || addr.match(/^172\.16\.([0-9]{1,3})\.([0-9]{1,3})/) != null || addr.match(/^127\.([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1,3})/) != null || addr.match(/^169\.254\.([0-9]{1,3})\.([0-9]{1,3})/) != null || addr.match(/^fc00:/) != null || addr.match(/^fe80:/) != null;
-};
-utils$1.ntoa4 = function(n) {
-  n = n.toString();
-  n = "" + (n >>> 24 & 255) + "." + (n >>> 16 & 255) + "." + (n >>> 8 & 255) + "." + (n & 255);
-  return n;
-};
-utils$1.ntoa6 = function(n) {
-  var a = "[";
-  for (var i = 0; i < n.length; i++) {
-    a += (n[i] >>> 16).toString(16) + ":";
-    a += (n[i] & 65535).toString(16) + ":";
-  }
-  a = a.replace(/:$/, "]").replace(/:0+/g, ":").replace(/::+/, "::");
-  return a;
-};
-var utilsExports = utils$2.exports;
-var fsWatcher$1 = {};
-var fs$1 = require$$1$1, path$1 = require$$2, FSWatcher = {};
-function makeFsWatchFilter(name, directory, filename, cooldownDelay, callback) {
-  var cooldownId = null;
-  function timeoutCallback() {
-    cooldownId = null;
-    callback();
-  }
-  function onWatchEvent(event, changedFile) {
-    if (!changedFile) {
-      return;
-    }
-    var filePath = path$1.join(directory, changedFile);
-    if (!filename || filename === changedFile) {
-      fs$1.exists(filePath, function onExists(exists) {
-        if (!exists) {
-          return;
-        }
-        if (cooldownId !== null) {
-          clearTimeout(cooldownId);
-          cooldownId = null;
-        }
-        cooldownId = setTimeout(timeoutCallback, cooldownDelay);
-      });
-    }
-  }
-  if (typeof cooldownDelay === "function") {
-    callback = cooldownDelay;
-    cooldownDelay = filename;
-    filename = null;
-  }
-  if (FSWatcher[name]) {
-    stopWatching(name);
-  }
-  FSWatcher[name] = fs$1.watch(directory, onWatchEvent);
+if (electron.app.isPackaged) {
+  global.geodatadir = path$3.join(process.resourcesPath, "data");
+} else {
+  global.geodatadir = path$3.join(__dirname, "../node_modules/geoip-lite/data");
 }
-function stopWatching(name) {
-  FSWatcher[name].close();
-}
-fsWatcher$1.makeFsWatchFilter = makeFsWatchFilter;
-fsWatcher$1.stopWatching = stopWatching;
-var async$1 = { exports: {} };
-async$1.exports;
-(function(module, exports$1) {
-  (function(global2, factory) {
-    factory(exports$1);
-  })(commonjsGlobal, function(exports$12) {
-    function slice(arrayLike, start) {
-      start = start | 0;
-      var newLen = Math.max(arrayLike.length - start, 0);
-      var newArr = Array(newLen);
-      for (var idx = 0; idx < newLen; idx++) {
-        newArr[idx] = arrayLike[start + idx];
-      }
-      return newArr;
-    }
-    var apply = function(fn) {
-      var args = slice(arguments, 1);
-      return function() {
-        var callArgs = slice(arguments);
-        return fn.apply(null, args.concat(callArgs));
-      };
-    };
-    var initialParams = function(fn) {
-      return function() {
-        var args = slice(arguments);
-        var callback = args.pop();
-        fn.call(this, args, callback);
-      };
-    };
-    function isObject(value) {
-      var type = typeof value;
-      return value != null && (type == "object" || type == "function");
-    }
-    var hasSetImmediate = typeof setImmediate === "function" && setImmediate;
-    var hasNextTick = typeof process === "object" && typeof process.nextTick === "function";
-    function fallback(fn) {
-      setTimeout(fn, 0);
-    }
-    function wrap(defer) {
-      return function(fn) {
-        var args = slice(arguments, 1);
-        defer(function() {
-          fn.apply(null, args);
-        });
-      };
-    }
-    var _defer;
-    if (hasSetImmediate) {
-      _defer = setImmediate;
-    } else if (hasNextTick) {
-      _defer = process.nextTick;
-    } else {
-      _defer = fallback;
-    }
-    var setImmediate$1 = wrap(_defer);
-    function asyncify(func) {
-      return initialParams(function(args, callback) {
-        var result2;
-        try {
-          result2 = func.apply(this, args);
-        } catch (e) {
-          return callback(e);
-        }
-        if (isObject(result2) && typeof result2.then === "function") {
-          result2.then(function(value) {
-            invokeCallback(callback, null, value);
-          }, function(err) {
-            invokeCallback(callback, err.message ? err : new Error(err));
-          });
-        } else {
-          callback(null, result2);
-        }
-      });
-    }
-    function invokeCallback(callback, error, value) {
-      try {
-        callback(error, value);
-      } catch (e) {
-        setImmediate$1(rethrow, e);
-      }
-    }
-    function rethrow(error) {
-      throw error;
-    }
-    var supportsSymbol = typeof Symbol === "function";
-    function isAsync(fn) {
-      return supportsSymbol && fn[Symbol.toStringTag] === "AsyncFunction";
-    }
-    function wrapAsync(asyncFn) {
-      return isAsync(asyncFn) ? asyncify(asyncFn) : asyncFn;
-    }
-    function applyEach$1(eachfn) {
-      return function(fns) {
-        var args = slice(arguments, 1);
-        var go = initialParams(function(args2, callback) {
-          var that = this;
-          return eachfn(fns, function(fn, cb) {
-            wrapAsync(fn).apply(that, args2.concat(cb));
-          }, callback);
-        });
-        if (args.length) {
-          return go.apply(this, args);
-        } else {
-          return go;
-        }
-      };
-    }
-    var freeGlobal = typeof commonjsGlobal == "object" && commonjsGlobal && commonjsGlobal.Object === Object && commonjsGlobal;
-    var freeSelf = typeof self == "object" && self && self.Object === Object && self;
-    var root = freeGlobal || freeSelf || Function("return this")();
-    var Symbol$1 = root.Symbol;
-    var objectProto = Object.prototype;
-    var hasOwnProperty = objectProto.hasOwnProperty;
-    var nativeObjectToString = objectProto.toString;
-    var symToStringTag$1 = Symbol$1 ? Symbol$1.toStringTag : void 0;
-    function getRawTag(value) {
-      var isOwn = hasOwnProperty.call(value, symToStringTag$1), tag = value[symToStringTag$1];
-      try {
-        value[symToStringTag$1] = void 0;
-        var unmasked = true;
-      } catch (e) {
-      }
-      var result2 = nativeObjectToString.call(value);
-      if (unmasked) {
-        if (isOwn) {
-          value[symToStringTag$1] = tag;
-        } else {
-          delete value[symToStringTag$1];
-        }
-      }
-      return result2;
-    }
-    var objectProto$1 = Object.prototype;
-    var nativeObjectToString$1 = objectProto$1.toString;
-    function objectToString(value) {
-      return nativeObjectToString$1.call(value);
-    }
-    var nullTag = "[object Null]";
-    var undefinedTag = "[object Undefined]";
-    var symToStringTag = Symbol$1 ? Symbol$1.toStringTag : void 0;
-    function baseGetTag(value) {
-      if (value == null) {
-        return value === void 0 ? undefinedTag : nullTag;
-      }
-      return symToStringTag && symToStringTag in Object(value) ? getRawTag(value) : objectToString(value);
-    }
-    var asyncTag = "[object AsyncFunction]";
-    var funcTag = "[object Function]";
-    var genTag = "[object GeneratorFunction]";
-    var proxyTag = "[object Proxy]";
-    function isFunction2(value) {
-      if (!isObject(value)) {
-        return false;
-      }
-      var tag = baseGetTag(value);
-      return tag == funcTag || tag == genTag || tag == asyncTag || tag == proxyTag;
-    }
-    var MAX_SAFE_INTEGER = 9007199254740991;
-    function isLength(value) {
-      return typeof value == "number" && value > -1 && value % 1 == 0 && value <= MAX_SAFE_INTEGER;
-    }
-    function isArrayLike(value) {
-      return value != null && isLength(value.length) && !isFunction2(value);
-    }
-    var breakLoop = {};
-    function noop2() {
-    }
-    function once(fn) {
-      return function() {
-        if (fn === null) return;
-        var callFn = fn;
-        fn = null;
-        callFn.apply(this, arguments);
-      };
-    }
-    var iteratorSymbol = typeof Symbol === "function" && Symbol.iterator;
-    var getIterator = function(coll) {
-      return iteratorSymbol && coll[iteratorSymbol] && coll[iteratorSymbol]();
-    };
-    function baseTimes(n, iteratee) {
-      var index2 = -1, result2 = Array(n);
-      while (++index2 < n) {
-        result2[index2] = iteratee(index2);
-      }
-      return result2;
-    }
-    function isObjectLike(value) {
-      return value != null && typeof value == "object";
-    }
-    var argsTag = "[object Arguments]";
-    function baseIsArguments(value) {
-      return isObjectLike(value) && baseGetTag(value) == argsTag;
-    }
-    var objectProto$3 = Object.prototype;
-    var hasOwnProperty$2 = objectProto$3.hasOwnProperty;
-    var propertyIsEnumerable = objectProto$3.propertyIsEnumerable;
-    var isArguments = baseIsArguments(/* @__PURE__ */ function() {
-      return arguments;
-    }()) ? baseIsArguments : function(value) {
-      return isObjectLike(value) && hasOwnProperty$2.call(value, "callee") && !propertyIsEnumerable.call(value, "callee");
-    };
-    var isArray = Array.isArray;
-    function stubFalse() {
-      return false;
-    }
-    var freeExports = typeof exports$12 == "object" && exports$12 && !exports$12.nodeType && exports$12;
-    var freeModule = freeExports && true && module && !module.nodeType && module;
-    var moduleExports = freeModule && freeModule.exports === freeExports;
-    var Buffer2 = moduleExports ? root.Buffer : void 0;
-    var nativeIsBuffer = Buffer2 ? Buffer2.isBuffer : void 0;
-    var isBuffer = nativeIsBuffer || stubFalse;
-    var MAX_SAFE_INTEGER$1 = 9007199254740991;
-    var reIsUint = /^(?:0|[1-9]\d*)$/;
-    function isIndex(value, length) {
-      var type = typeof value;
-      length = length == null ? MAX_SAFE_INTEGER$1 : length;
-      return !!length && (type == "number" || type != "symbol" && reIsUint.test(value)) && (value > -1 && value % 1 == 0 && value < length);
-    }
-    var argsTag$1 = "[object Arguments]";
-    var arrayTag = "[object Array]";
-    var boolTag = "[object Boolean]";
-    var dateTag = "[object Date]";
-    var errorTag = "[object Error]";
-    var funcTag$1 = "[object Function]";
-    var mapTag = "[object Map]";
-    var numberTag = "[object Number]";
-    var objectTag = "[object Object]";
-    var regexpTag = "[object RegExp]";
-    var setTag = "[object Set]";
-    var stringTag = "[object String]";
-    var weakMapTag = "[object WeakMap]";
-    var arrayBufferTag = "[object ArrayBuffer]";
-    var dataViewTag = "[object DataView]";
-    var float32Tag = "[object Float32Array]";
-    var float64Tag = "[object Float64Array]";
-    var int8Tag = "[object Int8Array]";
-    var int16Tag = "[object Int16Array]";
-    var int32Tag = "[object Int32Array]";
-    var uint8Tag = "[object Uint8Array]";
-    var uint8ClampedTag = "[object Uint8ClampedArray]";
-    var uint16Tag = "[object Uint16Array]";
-    var uint32Tag = "[object Uint32Array]";
-    var typedArrayTags = {};
-    typedArrayTags[float32Tag] = typedArrayTags[float64Tag] = typedArrayTags[int8Tag] = typedArrayTags[int16Tag] = typedArrayTags[int32Tag] = typedArrayTags[uint8Tag] = typedArrayTags[uint8ClampedTag] = typedArrayTags[uint16Tag] = typedArrayTags[uint32Tag] = true;
-    typedArrayTags[argsTag$1] = typedArrayTags[arrayTag] = typedArrayTags[arrayBufferTag] = typedArrayTags[boolTag] = typedArrayTags[dataViewTag] = typedArrayTags[dateTag] = typedArrayTags[errorTag] = typedArrayTags[funcTag$1] = typedArrayTags[mapTag] = typedArrayTags[numberTag] = typedArrayTags[objectTag] = typedArrayTags[regexpTag] = typedArrayTags[setTag] = typedArrayTags[stringTag] = typedArrayTags[weakMapTag] = false;
-    function baseIsTypedArray(value) {
-      return isObjectLike(value) && isLength(value.length) && !!typedArrayTags[baseGetTag(value)];
-    }
-    function baseUnary(func) {
-      return function(value) {
-        return func(value);
-      };
-    }
-    var freeExports$1 = typeof exports$12 == "object" && exports$12 && !exports$12.nodeType && exports$12;
-    var freeModule$1 = freeExports$1 && true && module && !module.nodeType && module;
-    var moduleExports$1 = freeModule$1 && freeModule$1.exports === freeExports$1;
-    var freeProcess = moduleExports$1 && freeGlobal.process;
-    var nodeUtil = function() {
-      try {
-        var types = freeModule$1 && freeModule$1.require && freeModule$1.require("util").types;
-        if (types) {
-          return types;
-        }
-        return freeProcess && freeProcess.binding && freeProcess.binding("util");
-      } catch (e) {
-      }
-    }();
-    var nodeIsTypedArray = nodeUtil && nodeUtil.isTypedArray;
-    var isTypedArray = nodeIsTypedArray ? baseUnary(nodeIsTypedArray) : baseIsTypedArray;
-    var objectProto$2 = Object.prototype;
-    var hasOwnProperty$1 = objectProto$2.hasOwnProperty;
-    function arrayLikeKeys(value, inherited) {
-      var isArr = isArray(value), isArg = !isArr && isArguments(value), isBuff = !isArr && !isArg && isBuffer(value), isType = !isArr && !isArg && !isBuff && isTypedArray(value), skipIndexes = isArr || isArg || isBuff || isType, result2 = skipIndexes ? baseTimes(value.length, String) : [], length = result2.length;
-      for (var key in value) {
-        if (hasOwnProperty$1.call(value, key) && !(skipIndexes && // Safari 9 has enumerable `arguments.length` in strict mode.
-        (key == "length" || // Node.js 0.10 has enumerable non-index properties on buffers.
-        isBuff && (key == "offset" || key == "parent") || // PhantomJS 2 has enumerable non-index properties on typed arrays.
-        isType && (key == "buffer" || key == "byteLength" || key == "byteOffset") || // Skip index properties.
-        isIndex(key, length)))) {
-          result2.push(key);
-        }
-      }
-      return result2;
-    }
-    var objectProto$5 = Object.prototype;
-    function isPrototype(value) {
-      var Ctor = value && value.constructor, proto = typeof Ctor == "function" && Ctor.prototype || objectProto$5;
-      return value === proto;
-    }
-    function overArg(func, transform2) {
-      return function(arg) {
-        return func(transform2(arg));
-      };
-    }
-    var nativeKeys = overArg(Object.keys, Object);
-    var objectProto$4 = Object.prototype;
-    var hasOwnProperty$3 = objectProto$4.hasOwnProperty;
-    function baseKeys(object) {
-      if (!isPrototype(object)) {
-        return nativeKeys(object);
-      }
-      var result2 = [];
-      for (var key in Object(object)) {
-        if (hasOwnProperty$3.call(object, key) && key != "constructor") {
-          result2.push(key);
-        }
-      }
-      return result2;
-    }
-    function keys(object) {
-      return isArrayLike(object) ? arrayLikeKeys(object) : baseKeys(object);
-    }
-    function createArrayIterator(coll) {
-      var i = -1;
-      var len = coll.length;
-      return function next() {
-        return ++i < len ? { value: coll[i], key: i } : null;
-      };
-    }
-    function createES2015Iterator(iterator2) {
-      var i = -1;
-      return function next() {
-        var item = iterator2.next();
-        if (item.done)
-          return null;
-        i++;
-        return { value: item.value, key: i };
-      };
-    }
-    function createObjectIterator(obj) {
-      var okeys = keys(obj);
-      var i = -1;
-      var len = okeys.length;
-      return function next() {
-        var key = okeys[++i];
-        if (key === "__proto__") {
-          return next();
-        }
-        return i < len ? { value: obj[key], key } : null;
-      };
-    }
-    function iterator(coll) {
-      if (isArrayLike(coll)) {
-        return createArrayIterator(coll);
-      }
-      var iterator2 = getIterator(coll);
-      return iterator2 ? createES2015Iterator(iterator2) : createObjectIterator(coll);
-    }
-    function onlyOnce(fn) {
-      return function() {
-        if (fn === null) throw new Error("Callback was already called.");
-        var callFn = fn;
-        fn = null;
-        callFn.apply(this, arguments);
-      };
-    }
-    function _eachOfLimit(limit) {
-      return function(obj, iteratee, callback) {
-        callback = once(callback || noop2);
-        if (limit <= 0 || !obj) {
-          return callback(null);
-        }
-        var nextElem = iterator(obj);
-        var done = false;
-        var running = 0;
-        var looping = false;
-        function iterateeCallback(err, value) {
-          running -= 1;
-          if (err) {
-            done = true;
-            callback(err);
-          } else if (value === breakLoop || done && running <= 0) {
-            done = true;
-            return callback(null);
-          } else if (!looping) {
-            replenish();
-          }
-        }
-        function replenish() {
-          looping = true;
-          while (running < limit && !done) {
-            var elem = nextElem();
-            if (elem === null) {
-              done = true;
-              if (running <= 0) {
-                callback(null);
-              }
-              return;
-            }
-            running += 1;
-            iteratee(elem.value, elem.key, onlyOnce(iterateeCallback));
-          }
-          looping = false;
-        }
-        replenish();
-      };
-    }
-    function eachOfLimit(coll, limit, iteratee, callback) {
-      _eachOfLimit(limit)(coll, wrapAsync(iteratee), callback);
-    }
-    function doLimit(fn, limit) {
-      return function(iterable, iteratee, callback) {
-        return fn(iterable, limit, iteratee, callback);
-      };
-    }
-    function eachOfArrayLike(coll, iteratee, callback) {
-      callback = once(callback || noop2);
-      var index2 = 0, completed = 0, length = coll.length;
-      if (length === 0) {
-        callback(null);
-      }
-      function iteratorCallback(err, value) {
-        if (err) {
-          callback(err);
-        } else if (++completed === length || value === breakLoop) {
-          callback(null);
-        }
-      }
-      for (; index2 < length; index2++) {
-        iteratee(coll[index2], index2, onlyOnce(iteratorCallback));
-      }
-    }
-    var eachOfGeneric = doLimit(eachOfLimit, Infinity);
-    var eachOf = function(coll, iteratee, callback) {
-      var eachOfImplementation = isArrayLike(coll) ? eachOfArrayLike : eachOfGeneric;
-      eachOfImplementation(coll, wrapAsync(iteratee), callback);
-    };
-    function doParallel(fn) {
-      return function(obj, iteratee, callback) {
-        return fn(eachOf, obj, wrapAsync(iteratee), callback);
-      };
-    }
-    function _asyncMap(eachfn, arr, iteratee, callback) {
-      callback = callback || noop2;
-      arr = arr || [];
-      var results = [];
-      var counter = 0;
-      var _iteratee = wrapAsync(iteratee);
-      eachfn(arr, function(value, _, callback2) {
-        var index2 = counter++;
-        _iteratee(value, function(err, v) {
-          results[index2] = v;
-          callback2(err);
-        });
-      }, function(err) {
-        callback(err, results);
-      });
-    }
-    var map = doParallel(_asyncMap);
-    var applyEach = applyEach$1(map);
-    function doParallelLimit(fn) {
-      return function(obj, limit, iteratee, callback) {
-        return fn(_eachOfLimit(limit), obj, wrapAsync(iteratee), callback);
-      };
-    }
-    var mapLimit = doParallelLimit(_asyncMap);
-    var mapSeries = doLimit(mapLimit, 1);
-    var applyEachSeries = applyEach$1(mapSeries);
-    function arrayEach(array, iteratee) {
-      var index2 = -1, length = array == null ? 0 : array.length;
-      while (++index2 < length) {
-        if (iteratee(array[index2], index2, array) === false) {
-          break;
-        }
-      }
-      return array;
-    }
-    function createBaseFor(fromRight) {
-      return function(object, iteratee, keysFunc) {
-        var index2 = -1, iterable = Object(object), props = keysFunc(object), length = props.length;
-        while (length--) {
-          var key = props[++index2];
-          if (iteratee(iterable[key], key, iterable) === false) {
-            break;
-          }
-        }
-        return object;
-      };
-    }
-    var baseFor = createBaseFor();
-    function baseForOwn(object, iteratee) {
-      return object && baseFor(object, iteratee, keys);
-    }
-    function baseFindIndex(array, predicate, fromIndex, fromRight) {
-      var length = array.length, index2 = fromIndex + -1;
-      while (++index2 < length) {
-        if (predicate(array[index2], index2, array)) {
-          return index2;
-        }
-      }
-      return -1;
-    }
-    function baseIsNaN(value) {
-      return value !== value;
-    }
-    function strictIndexOf(array, value, fromIndex) {
-      var index2 = fromIndex - 1, length = array.length;
-      while (++index2 < length) {
-        if (array[index2] === value) {
-          return index2;
-        }
-      }
-      return -1;
-    }
-    function baseIndexOf(array, value, fromIndex) {
-      return value === value ? strictIndexOf(array, value, fromIndex) : baseFindIndex(array, baseIsNaN, fromIndex);
-    }
-    var auto = function(tasks, concurrency, callback) {
-      if (typeof concurrency === "function") {
-        callback = concurrency;
-        concurrency = null;
-      }
-      callback = once(callback || noop2);
-      var keys$$1 = keys(tasks);
-      var numTasks = keys$$1.length;
-      if (!numTasks) {
-        return callback(null);
-      }
-      if (!concurrency) {
-        concurrency = numTasks;
-      }
-      var results = {};
-      var runningTasks = 0;
-      var hasError = false;
-      var listeners = /* @__PURE__ */ Object.create(null);
-      var readyTasks = [];
-      var readyToCheck = [];
-      var uncheckedDependencies = {};
-      baseForOwn(tasks, function(task, key) {
-        if (!isArray(task)) {
-          enqueueTask(key, [task]);
-          readyToCheck.push(key);
-          return;
-        }
-        var dependencies = task.slice(0, task.length - 1);
-        var remainingDependencies = dependencies.length;
-        if (remainingDependencies === 0) {
-          enqueueTask(key, task);
-          readyToCheck.push(key);
-          return;
-        }
-        uncheckedDependencies[key] = remainingDependencies;
-        arrayEach(dependencies, function(dependencyName) {
-          if (!tasks[dependencyName]) {
-            throw new Error("async.auto task `" + key + "` has a non-existent dependency `" + dependencyName + "` in " + dependencies.join(", "));
-          }
-          addListener(dependencyName, function() {
-            remainingDependencies--;
-            if (remainingDependencies === 0) {
-              enqueueTask(key, task);
-            }
-          });
-        });
-      });
-      checkForDeadlocks();
-      processQueue();
-      function enqueueTask(key, task) {
-        readyTasks.push(function() {
-          runTask(key, task);
-        });
-      }
-      function processQueue() {
-        if (readyTasks.length === 0 && runningTasks === 0) {
-          return callback(null, results);
-        }
-        while (readyTasks.length && runningTasks < concurrency) {
-          var run = readyTasks.shift();
-          run();
-        }
-      }
-      function addListener(taskName, fn) {
-        var taskListeners = listeners[taskName];
-        if (!taskListeners) {
-          taskListeners = listeners[taskName] = [];
-        }
-        taskListeners.push(fn);
-      }
-      function taskComplete(taskName) {
-        var taskListeners = listeners[taskName] || [];
-        arrayEach(taskListeners, function(fn) {
-          fn();
-        });
-        processQueue();
-      }
-      function runTask(key, task) {
-        if (hasError) return;
-        var taskCallback = onlyOnce(function(err, result2) {
-          runningTasks--;
-          if (arguments.length > 2) {
-            result2 = slice(arguments, 1);
-          }
-          if (err) {
-            var safeResults = {};
-            baseForOwn(results, function(val, rkey) {
-              safeResults[rkey] = val;
-            });
-            safeResults[key] = result2;
-            hasError = true;
-            listeners = /* @__PURE__ */ Object.create(null);
-            callback(err, safeResults);
-          } else {
-            results[key] = result2;
-            taskComplete(key);
-          }
-        });
-        runningTasks++;
-        var taskFn = wrapAsync(task[task.length - 1]);
-        if (task.length > 1) {
-          taskFn(results, taskCallback);
-        } else {
-          taskFn(taskCallback);
-        }
-      }
-      function checkForDeadlocks() {
-        var currentTask;
-        var counter = 0;
-        while (readyToCheck.length) {
-          currentTask = readyToCheck.pop();
-          counter++;
-          arrayEach(getDependents(currentTask), function(dependent) {
-            if (--uncheckedDependencies[dependent] === 0) {
-              readyToCheck.push(dependent);
-            }
-          });
-        }
-        if (counter !== numTasks) {
-          throw new Error(
-            "async.auto cannot execute tasks due to a recursive dependency"
-          );
-        }
-      }
-      function getDependents(taskName) {
-        var result2 = [];
-        baseForOwn(tasks, function(task, key) {
-          if (isArray(task) && baseIndexOf(task, taskName, 0) >= 0) {
-            result2.push(key);
-          }
-        });
-        return result2;
-      }
-    };
-    function arrayMap(array, iteratee) {
-      var index2 = -1, length = array == null ? 0 : array.length, result2 = Array(length);
-      while (++index2 < length) {
-        result2[index2] = iteratee(array[index2], index2, array);
-      }
-      return result2;
-    }
-    var symbolTag = "[object Symbol]";
-    function isSymbol(value) {
-      return typeof value == "symbol" || isObjectLike(value) && baseGetTag(value) == symbolTag;
-    }
-    var symbolProto = Symbol$1 ? Symbol$1.prototype : void 0;
-    var symbolToString = symbolProto ? symbolProto.toString : void 0;
-    function baseToString(value) {
-      if (typeof value == "string") {
-        return value;
-      }
-      if (isArray(value)) {
-        return arrayMap(value, baseToString) + "";
-      }
-      if (isSymbol(value)) {
-        return symbolToString ? symbolToString.call(value) : "";
-      }
-      var result2 = value + "";
-      return result2 == "0" && 1 / value == -Infinity ? "-0" : result2;
-    }
-    function baseSlice(array, start, end) {
-      var index2 = -1, length = array.length;
-      if (start < 0) {
-        start = -start > length ? 0 : length + start;
-      }
-      end = end > length ? length : end;
-      if (end < 0) {
-        end += length;
-      }
-      length = start > end ? 0 : end - start >>> 0;
-      start >>>= 0;
-      var result2 = Array(length);
-      while (++index2 < length) {
-        result2[index2] = array[index2 + start];
-      }
-      return result2;
-    }
-    function castSlice(array, start, end) {
-      var length = array.length;
-      end = end === void 0 ? length : end;
-      return !start && end >= length ? array : baseSlice(array, start, end);
-    }
-    function charsEndIndex(strSymbols, chrSymbols) {
-      var index2 = strSymbols.length;
-      while (index2-- && baseIndexOf(chrSymbols, strSymbols[index2], 0) > -1) {
-      }
-      return index2;
-    }
-    function charsStartIndex(strSymbols, chrSymbols) {
-      var index2 = -1, length = strSymbols.length;
-      while (++index2 < length && baseIndexOf(chrSymbols, strSymbols[index2], 0) > -1) {
-      }
-      return index2;
-    }
-    function asciiToArray(string) {
-      return string.split("");
-    }
-    var rsAstralRange = "\\ud800-\\udfff";
-    var rsComboMarksRange = "\\u0300-\\u036f";
-    var reComboHalfMarksRange = "\\ufe20-\\ufe2f";
-    var rsComboSymbolsRange = "\\u20d0-\\u20ff";
-    var rsComboRange = rsComboMarksRange + reComboHalfMarksRange + rsComboSymbolsRange;
-    var rsVarRange = "\\ufe0e\\ufe0f";
-    var rsZWJ = "\\u200d";
-    var reHasUnicode = RegExp("[" + rsZWJ + rsAstralRange + rsComboRange + rsVarRange + "]");
-    function hasUnicode(string) {
-      return reHasUnicode.test(string);
-    }
-    var rsAstralRange$1 = "\\ud800-\\udfff";
-    var rsComboMarksRange$1 = "\\u0300-\\u036f";
-    var reComboHalfMarksRange$1 = "\\ufe20-\\ufe2f";
-    var rsComboSymbolsRange$1 = "\\u20d0-\\u20ff";
-    var rsComboRange$1 = rsComboMarksRange$1 + reComboHalfMarksRange$1 + rsComboSymbolsRange$1;
-    var rsVarRange$1 = "\\ufe0e\\ufe0f";
-    var rsAstral = "[" + rsAstralRange$1 + "]";
-    var rsCombo = "[" + rsComboRange$1 + "]";
-    var rsFitz = "\\ud83c[\\udffb-\\udfff]";
-    var rsModifier = "(?:" + rsCombo + "|" + rsFitz + ")";
-    var rsNonAstral = "[^" + rsAstralRange$1 + "]";
-    var rsRegional = "(?:\\ud83c[\\udde6-\\uddff]){2}";
-    var rsSurrPair = "[\\ud800-\\udbff][\\udc00-\\udfff]";
-    var rsZWJ$1 = "\\u200d";
-    var reOptMod = rsModifier + "?";
-    var rsOptVar = "[" + rsVarRange$1 + "]?";
-    var rsOptJoin = "(?:" + rsZWJ$1 + "(?:" + [rsNonAstral, rsRegional, rsSurrPair].join("|") + ")" + rsOptVar + reOptMod + ")*";
-    var rsSeq = rsOptVar + reOptMod + rsOptJoin;
-    var rsSymbol = "(?:" + [rsNonAstral + rsCombo + "?", rsCombo, rsRegional, rsSurrPair, rsAstral].join("|") + ")";
-    var reUnicode = RegExp(rsFitz + "(?=" + rsFitz + ")|" + rsSymbol + rsSeq, "g");
-    function unicodeToArray(string) {
-      return string.match(reUnicode) || [];
-    }
-    function stringToArray(string) {
-      return hasUnicode(string) ? unicodeToArray(string) : asciiToArray(string);
-    }
-    function toString(value) {
-      return value == null ? "" : baseToString(value);
-    }
-    var reTrim = /^\s+|\s+$/g;
-    function trim(string, chars, guard) {
-      string = toString(string);
-      if (string && chars === void 0) {
-        return string.replace(reTrim, "");
-      }
-      if (!string || !(chars = baseToString(chars))) {
-        return string;
-      }
-      var strSymbols = stringToArray(string), chrSymbols = stringToArray(chars), start = charsStartIndex(strSymbols, chrSymbols), end = charsEndIndex(strSymbols, chrSymbols) + 1;
-      return castSlice(strSymbols, start, end).join("");
-    }
-    var FN_ARGS = /^(?:async\s+)?(function)?\s*[^\(]*\(\s*([^\)]*)\)/m;
-    var FN_ARG_SPLIT = /,/;
-    var FN_ARG = /(=.+)?(\s*)$/;
-    var STRIP_COMMENTS = /((\/\/.*$)|(\/\*[\s\S]*?\*\/))/mg;
-    function parseParams(func) {
-      func = func.toString().replace(STRIP_COMMENTS, "");
-      func = func.match(FN_ARGS)[2].replace(" ", "");
-      func = func ? func.split(FN_ARG_SPLIT) : [];
-      func = func.map(function(arg) {
-        return trim(arg.replace(FN_ARG, ""));
-      });
-      return func;
-    }
-    function autoInject(tasks, callback) {
-      var newTasks = {};
-      baseForOwn(tasks, function(taskFn, key) {
-        var params;
-        var fnIsAsync = isAsync(taskFn);
-        var hasNoDeps = !fnIsAsync && taskFn.length === 1 || fnIsAsync && taskFn.length === 0;
-        if (isArray(taskFn)) {
-          params = taskFn.slice(0, -1);
-          taskFn = taskFn[taskFn.length - 1];
-          newTasks[key] = params.concat(params.length > 0 ? newTask : taskFn);
-        } else if (hasNoDeps) {
-          newTasks[key] = taskFn;
-        } else {
-          params = parseParams(taskFn);
-          if (taskFn.length === 0 && !fnIsAsync && params.length === 0) {
-            throw new Error("autoInject task functions require explicit parameters.");
-          }
-          if (!fnIsAsync) params.pop();
-          newTasks[key] = params.concat(newTask);
-        }
-        function newTask(results, taskCb) {
-          var newArgs = arrayMap(params, function(name) {
-            return results[name];
-          });
-          newArgs.push(taskCb);
-          wrapAsync(taskFn).apply(null, newArgs);
-        }
-      });
-      auto(newTasks, callback);
-    }
-    function DLL() {
-      this.head = this.tail = null;
-      this.length = 0;
-    }
-    function setInitial(dll, node) {
-      dll.length = 1;
-      dll.head = dll.tail = node;
-    }
-    DLL.prototype.removeLink = function(node) {
-      if (node.prev) node.prev.next = node.next;
-      else this.head = node.next;
-      if (node.next) node.next.prev = node.prev;
-      else this.tail = node.prev;
-      node.prev = node.next = null;
-      this.length -= 1;
-      return node;
-    };
-    DLL.prototype.empty = function() {
-      while (this.head) this.shift();
-      return this;
-    };
-    DLL.prototype.insertAfter = function(node, newNode) {
-      newNode.prev = node;
-      newNode.next = node.next;
-      if (node.next) node.next.prev = newNode;
-      else this.tail = newNode;
-      node.next = newNode;
-      this.length += 1;
-    };
-    DLL.prototype.insertBefore = function(node, newNode) {
-      newNode.prev = node.prev;
-      newNode.next = node;
-      if (node.prev) node.prev.next = newNode;
-      else this.head = newNode;
-      node.prev = newNode;
-      this.length += 1;
-    };
-    DLL.prototype.unshift = function(node) {
-      if (this.head) this.insertBefore(this.head, node);
-      else setInitial(this, node);
-    };
-    DLL.prototype.push = function(node) {
-      if (this.tail) this.insertAfter(this.tail, node);
-      else setInitial(this, node);
-    };
-    DLL.prototype.shift = function() {
-      return this.head && this.removeLink(this.head);
-    };
-    DLL.prototype.pop = function() {
-      return this.tail && this.removeLink(this.tail);
-    };
-    DLL.prototype.toArray = function() {
-      var arr = Array(this.length);
-      var curr = this.head;
-      for (var idx = 0; idx < this.length; idx++) {
-        arr[idx] = curr.data;
-        curr = curr.next;
-      }
-      return arr;
-    };
-    DLL.prototype.remove = function(testFn) {
-      var curr = this.head;
-      while (!!curr) {
-        var next = curr.next;
-        if (testFn(curr)) {
-          this.removeLink(curr);
-        }
-        curr = next;
-      }
-      return this;
-    };
-    function queue(worker, concurrency, payload) {
-      if (concurrency == null) {
-        concurrency = 1;
-      } else if (concurrency === 0) {
-        throw new Error("Concurrency must not be zero");
-      }
-      var _worker = wrapAsync(worker);
-      var numRunning = 0;
-      var workersList = [];
-      var processingScheduled = false;
-      function _insert(data, insertAtFront, callback) {
-        if (callback != null && typeof callback !== "function") {
-          throw new Error("task callback must be a function");
-        }
-        q.started = true;
-        if (!isArray(data)) {
-          data = [data];
-        }
-        if (data.length === 0 && q.idle()) {
-          return setImmediate$1(function() {
-            q.drain();
-          });
-        }
-        for (var i = 0, l = data.length; i < l; i++) {
-          var item = {
-            data: data[i],
-            callback: callback || noop2
-          };
-          if (insertAtFront) {
-            q._tasks.unshift(item);
-          } else {
-            q._tasks.push(item);
-          }
-        }
-        if (!processingScheduled) {
-          processingScheduled = true;
-          setImmediate$1(function() {
-            processingScheduled = false;
-            q.process();
-          });
-        }
-      }
-      function _next(tasks) {
-        return function(err) {
-          numRunning -= 1;
-          for (var i = 0, l = tasks.length; i < l; i++) {
-            var task = tasks[i];
-            var index2 = baseIndexOf(workersList, task, 0);
-            if (index2 === 0) {
-              workersList.shift();
-            } else if (index2 > 0) {
-              workersList.splice(index2, 1);
-            }
-            task.callback.apply(task, arguments);
-            if (err != null) {
-              q.error(err, task.data);
-            }
-          }
-          if (numRunning <= q.concurrency - q.buffer) {
-            q.unsaturated();
-          }
-          if (q.idle()) {
-            q.drain();
-          }
-          q.process();
-        };
-      }
-      var isProcessing = false;
-      var q = {
-        _tasks: new DLL(),
-        concurrency,
-        payload,
-        saturated: noop2,
-        unsaturated: noop2,
-        buffer: concurrency / 4,
-        empty: noop2,
-        drain: noop2,
-        error: noop2,
-        started: false,
-        paused: false,
-        push: function(data, callback) {
-          _insert(data, false, callback);
-        },
-        kill: function() {
-          q.drain = noop2;
-          q._tasks.empty();
-        },
-        unshift: function(data, callback) {
-          _insert(data, true, callback);
-        },
-        remove: function(testFn) {
-          q._tasks.remove(testFn);
-        },
-        process: function() {
-          if (isProcessing) {
-            return;
-          }
-          isProcessing = true;
-          while (!q.paused && numRunning < q.concurrency && q._tasks.length) {
-            var tasks = [], data = [];
-            var l = q._tasks.length;
-            if (q.payload) l = Math.min(l, q.payload);
-            for (var i = 0; i < l; i++) {
-              var node = q._tasks.shift();
-              tasks.push(node);
-              workersList.push(node);
-              data.push(node.data);
-            }
-            numRunning += 1;
-            if (q._tasks.length === 0) {
-              q.empty();
-            }
-            if (numRunning === q.concurrency) {
-              q.saturated();
-            }
-            var cb = onlyOnce(_next(tasks));
-            _worker(data, cb);
-          }
-          isProcessing = false;
-        },
-        length: function() {
-          return q._tasks.length;
-        },
-        running: function() {
-          return numRunning;
-        },
-        workersList: function() {
-          return workersList;
-        },
-        idle: function() {
-          return q._tasks.length + numRunning === 0;
-        },
-        pause: function() {
-          q.paused = true;
-        },
-        resume: function() {
-          if (q.paused === false) {
-            return;
-          }
-          q.paused = false;
-          setImmediate$1(q.process);
-        }
-      };
-      return q;
-    }
-    function cargo(worker, payload) {
-      return queue(worker, 1, payload);
-    }
-    var eachOfSeries = doLimit(eachOfLimit, 1);
-    function reduce(coll, memo, iteratee, callback) {
-      callback = once(callback || noop2);
-      var _iteratee = wrapAsync(iteratee);
-      eachOfSeries(coll, function(x, i, callback2) {
-        _iteratee(memo, x, function(err, v) {
-          memo = v;
-          callback2(err);
-        });
-      }, function(err) {
-        callback(err, memo);
-      });
-    }
-    function seq() {
-      var _functions = arrayMap(arguments, wrapAsync);
-      return function() {
-        var args = slice(arguments);
-        var that = this;
-        var cb = args[args.length - 1];
-        if (typeof cb == "function") {
-          args.pop();
-        } else {
-          cb = noop2;
-        }
-        reduce(
-          _functions,
-          args,
-          function(newargs, fn, cb2) {
-            fn.apply(that, newargs.concat(function(err) {
-              var nextargs = slice(arguments, 1);
-              cb2(err, nextargs);
-            }));
-          },
-          function(err, results) {
-            cb.apply(that, [err].concat(results));
-          }
-        );
-      };
-    }
-    var compose = function() {
-      return seq.apply(null, slice(arguments).reverse());
-    };
-    var _concat = Array.prototype.concat;
-    var concatLimit = function(coll, limit, iteratee, callback) {
-      callback = callback || noop2;
-      var _iteratee = wrapAsync(iteratee);
-      mapLimit(coll, limit, function(val, callback2) {
-        _iteratee(val, function(err) {
-          if (err) return callback2(err);
-          return callback2(null, slice(arguments, 1));
-        });
-      }, function(err, mapResults) {
-        var result2 = [];
-        for (var i = 0; i < mapResults.length; i++) {
-          if (mapResults[i]) {
-            result2 = _concat.apply(result2, mapResults[i]);
-          }
-        }
-        return callback(err, result2);
-      });
-    };
-    var concat = doLimit(concatLimit, Infinity);
-    var concatSeries = doLimit(concatLimit, 1);
-    var constant = function() {
-      var values = slice(arguments);
-      var args = [null].concat(values);
-      return function() {
-        var callback = arguments[arguments.length - 1];
-        return callback.apply(this, args);
-      };
-    };
-    function identity(value) {
-      return value;
-    }
-    function _createTester(check, getResult) {
-      return function(eachfn, arr, iteratee, cb) {
-        cb = cb || noop2;
-        var testPassed = false;
-        var testResult;
-        eachfn(arr, function(value, _, callback) {
-          iteratee(value, function(err, result2) {
-            if (err) {
-              callback(err);
-            } else if (check(result2) && !testResult) {
-              testPassed = true;
-              testResult = getResult(true, value);
-              callback(null, breakLoop);
-            } else {
-              callback();
-            }
-          });
-        }, function(err) {
-          if (err) {
-            cb(err);
-          } else {
-            cb(null, testPassed ? testResult : getResult(false));
-          }
-        });
-      };
-    }
-    function _findGetResult(v, x) {
-      return x;
-    }
-    var detect = doParallel(_createTester(identity, _findGetResult));
-    var detectLimit = doParallelLimit(_createTester(identity, _findGetResult));
-    var detectSeries = doLimit(detectLimit, 1);
-    function consoleFunc(name) {
-      return function(fn) {
-        var args = slice(arguments, 1);
-        args.push(function(err) {
-          var args2 = slice(arguments, 1);
-          if (typeof console === "object") {
-            if (err) {
-              if (console.error) {
-                console.error(err);
-              }
-            } else if (console[name]) {
-              arrayEach(args2, function(x) {
-                console[name](x);
-              });
-            }
-          }
-        });
-        wrapAsync(fn).apply(null, args);
-      };
-    }
-    var dir = consoleFunc("dir");
-    function doDuring(fn, test, callback) {
-      callback = onlyOnce(callback || noop2);
-      var _fn = wrapAsync(fn);
-      var _test = wrapAsync(test);
-      function next(err) {
-        if (err) return callback(err);
-        var args = slice(arguments, 1);
-        args.push(check);
-        _test.apply(this, args);
-      }
-      function check(err, truth) {
-        if (err) return callback(err);
-        if (!truth) return callback(null);
-        _fn(next);
-      }
-      check(null, true);
-    }
-    function doWhilst(iteratee, test, callback) {
-      callback = onlyOnce(callback || noop2);
-      var _iteratee = wrapAsync(iteratee);
-      var next = function(err) {
-        if (err) return callback(err);
-        var args = slice(arguments, 1);
-        if (test.apply(this, args)) return _iteratee(next);
-        callback.apply(null, [null].concat(args));
-      };
-      _iteratee(next);
-    }
-    function doUntil(iteratee, test, callback) {
-      doWhilst(iteratee, function() {
-        return !test.apply(this, arguments);
-      }, callback);
-    }
-    function during(test, fn, callback) {
-      callback = onlyOnce(callback || noop2);
-      var _fn = wrapAsync(fn);
-      var _test = wrapAsync(test);
-      function next(err) {
-        if (err) return callback(err);
-        _test(check);
-      }
-      function check(err, truth) {
-        if (err) return callback(err);
-        if (!truth) return callback(null);
-        _fn(next);
-      }
-      _test(check);
-    }
-    function _withoutIndex(iteratee) {
-      return function(value, index2, callback) {
-        return iteratee(value, callback);
-      };
-    }
-    function eachLimit(coll, iteratee, callback) {
-      eachOf(coll, _withoutIndex(wrapAsync(iteratee)), callback);
-    }
-    function eachLimit$1(coll, limit, iteratee, callback) {
-      _eachOfLimit(limit)(coll, _withoutIndex(wrapAsync(iteratee)), callback);
-    }
-    var eachSeries = doLimit(eachLimit$1, 1);
-    function ensureAsync(fn) {
-      if (isAsync(fn)) return fn;
-      return initialParams(function(args, callback) {
-        var sync = true;
-        args.push(function() {
-          var innerArgs = arguments;
-          if (sync) {
-            setImmediate$1(function() {
-              callback.apply(null, innerArgs);
-            });
-          } else {
-            callback.apply(null, innerArgs);
-          }
-        });
-        fn.apply(this, args);
-        sync = false;
-      });
-    }
-    function notId(v) {
-      return !v;
-    }
-    var every = doParallel(_createTester(notId, notId));
-    var everyLimit = doParallelLimit(_createTester(notId, notId));
-    var everySeries = doLimit(everyLimit, 1);
-    function baseProperty(key) {
-      return function(object) {
-        return object == null ? void 0 : object[key];
-      };
-    }
-    function filterArray(eachfn, arr, iteratee, callback) {
-      var truthValues = new Array(arr.length);
-      eachfn(arr, function(x, index2, callback2) {
-        iteratee(x, function(err, v) {
-          truthValues[index2] = !!v;
-          callback2(err);
-        });
-      }, function(err) {
-        if (err) return callback(err);
-        var results = [];
-        for (var i = 0; i < arr.length; i++) {
-          if (truthValues[i]) results.push(arr[i]);
-        }
-        callback(null, results);
-      });
-    }
-    function filterGeneric(eachfn, coll, iteratee, callback) {
-      var results = [];
-      eachfn(coll, function(x, index2, callback2) {
-        iteratee(x, function(err, v) {
-          if (err) {
-            callback2(err);
-          } else {
-            if (v) {
-              results.push({ index: index2, value: x });
-            }
-            callback2();
-          }
-        });
-      }, function(err) {
-        if (err) {
-          callback(err);
-        } else {
-          callback(null, arrayMap(results.sort(function(a, b) {
-            return a.index - b.index;
-          }), baseProperty("value")));
-        }
-      });
-    }
-    function _filter(eachfn, coll, iteratee, callback) {
-      var filter2 = isArrayLike(coll) ? filterArray : filterGeneric;
-      filter2(eachfn, coll, wrapAsync(iteratee), callback || noop2);
-    }
-    var filter = doParallel(_filter);
-    var filterLimit = doParallelLimit(_filter);
-    var filterSeries = doLimit(filterLimit, 1);
-    function forever(fn, errback) {
-      var done = onlyOnce(errback || noop2);
-      var task = wrapAsync(ensureAsync(fn));
-      function next(err) {
-        if (err) return done(err);
-        task(next);
-      }
-      next();
-    }
-    var groupByLimit = function(coll, limit, iteratee, callback) {
-      callback = callback || noop2;
-      var _iteratee = wrapAsync(iteratee);
-      mapLimit(coll, limit, function(val, callback2) {
-        _iteratee(val, function(err, key) {
-          if (err) return callback2(err);
-          return callback2(null, { key, val });
-        });
-      }, function(err, mapResults) {
-        var result2 = {};
-        var hasOwnProperty2 = Object.prototype.hasOwnProperty;
-        for (var i = 0; i < mapResults.length; i++) {
-          if (mapResults[i]) {
-            var key = mapResults[i].key;
-            var val = mapResults[i].val;
-            if (hasOwnProperty2.call(result2, key)) {
-              result2[key].push(val);
-            } else {
-              result2[key] = [val];
-            }
-          }
-        }
-        return callback(err, result2);
-      });
-    };
-    var groupBy = doLimit(groupByLimit, Infinity);
-    var groupBySeries = doLimit(groupByLimit, 1);
-    var log = consoleFunc("log");
-    function mapValuesLimit(obj, limit, iteratee, callback) {
-      callback = once(callback || noop2);
-      var newObj = {};
-      var _iteratee = wrapAsync(iteratee);
-      eachOfLimit(obj, limit, function(val, key, next) {
-        _iteratee(val, key, function(err, result2) {
-          if (err) return next(err);
-          newObj[key] = result2;
-          next();
-        });
-      }, function(err) {
-        callback(err, newObj);
-      });
-    }
-    var mapValues = doLimit(mapValuesLimit, Infinity);
-    var mapValuesSeries = doLimit(mapValuesLimit, 1);
-    function has(obj, key) {
-      return key in obj;
-    }
-    function memoize(fn, hasher) {
-      var memo = /* @__PURE__ */ Object.create(null);
-      var queues = /* @__PURE__ */ Object.create(null);
-      hasher = hasher || identity;
-      var _fn = wrapAsync(fn);
-      var memoized = initialParams(function memoized2(args, callback) {
-        var key = hasher.apply(null, args);
-        if (has(memo, key)) {
-          setImmediate$1(function() {
-            callback.apply(null, memo[key]);
-          });
-        } else if (has(queues, key)) {
-          queues[key].push(callback);
-        } else {
-          queues[key] = [callback];
-          _fn.apply(null, args.concat(function() {
-            var args2 = slice(arguments);
-            memo[key] = args2;
-            var q = queues[key];
-            delete queues[key];
-            for (var i = 0, l = q.length; i < l; i++) {
-              q[i].apply(null, args2);
-            }
-          }));
-        }
-      });
-      memoized.memo = memo;
-      memoized.unmemoized = fn;
-      return memoized;
-    }
-    var _defer$1;
-    if (hasNextTick) {
-      _defer$1 = process.nextTick;
-    } else if (hasSetImmediate) {
-      _defer$1 = setImmediate;
-    } else {
-      _defer$1 = fallback;
-    }
-    var nextTick = wrap(_defer$1);
-    function _parallel(eachfn, tasks, callback) {
-      callback = callback || noop2;
-      var results = isArrayLike(tasks) ? [] : {};
-      eachfn(tasks, function(task, key, callback2) {
-        wrapAsync(task)(function(err, result2) {
-          if (arguments.length > 2) {
-            result2 = slice(arguments, 1);
-          }
-          results[key] = result2;
-          callback2(err);
-        });
-      }, function(err) {
-        callback(err, results);
-      });
-    }
-    function parallelLimit(tasks, callback) {
-      _parallel(eachOf, tasks, callback);
-    }
-    function parallelLimit$1(tasks, limit, callback) {
-      _parallel(_eachOfLimit(limit), tasks, callback);
-    }
-    var queue$1 = function(worker, concurrency) {
-      var _worker = wrapAsync(worker);
-      return queue(function(items, cb) {
-        _worker(items[0], cb);
-      }, concurrency, 1);
-    };
-    var priorityQueue = function(worker, concurrency) {
-      var q = queue$1(worker, concurrency);
-      q.push = function(data, priority, callback) {
-        if (callback == null) callback = noop2;
-        if (typeof callback !== "function") {
-          throw new Error("task callback must be a function");
-        }
-        q.started = true;
-        if (!isArray(data)) {
-          data = [data];
-        }
-        if (data.length === 0) {
-          return setImmediate$1(function() {
-            q.drain();
-          });
-        }
-        priority = priority || 0;
-        var nextNode = q._tasks.head;
-        while (nextNode && priority >= nextNode.priority) {
-          nextNode = nextNode.next;
-        }
-        for (var i = 0, l = data.length; i < l; i++) {
-          var item = {
-            data: data[i],
-            priority,
-            callback
-          };
-          if (nextNode) {
-            q._tasks.insertBefore(nextNode, item);
-          } else {
-            q._tasks.push(item);
-          }
-        }
-        setImmediate$1(q.process);
-      };
-      delete q.unshift;
-      return q;
-    };
-    function race(tasks, callback) {
-      callback = once(callback || noop2);
-      if (!isArray(tasks)) return callback(new TypeError("First argument to race must be an array of functions"));
-      if (!tasks.length) return callback();
-      for (var i = 0, l = tasks.length; i < l; i++) {
-        wrapAsync(tasks[i])(callback);
-      }
-    }
-    function reduceRight(array, memo, iteratee, callback) {
-      var reversed = slice(array).reverse();
-      reduce(reversed, memo, iteratee, callback);
-    }
-    function reflect(fn) {
-      var _fn = wrapAsync(fn);
-      return initialParams(function reflectOn(args, reflectCallback) {
-        args.push(function callback(error, cbArg) {
-          if (error) {
-            reflectCallback(null, { error });
-          } else {
-            var value;
-            if (arguments.length <= 2) {
-              value = cbArg;
-            } else {
-              value = slice(arguments, 1);
-            }
-            reflectCallback(null, { value });
-          }
-        });
-        return _fn.apply(this, args);
-      });
-    }
-    function reflectAll(tasks) {
-      var results;
-      if (isArray(tasks)) {
-        results = arrayMap(tasks, reflect);
-      } else {
-        results = {};
-        baseForOwn(tasks, function(task, key) {
-          results[key] = reflect.call(this, task);
-        });
-      }
-      return results;
-    }
-    function reject$1(eachfn, arr, iteratee, callback) {
-      _filter(eachfn, arr, function(value, cb) {
-        iteratee(value, function(err, v) {
-          cb(err, !v);
-        });
-      }, callback);
-    }
-    var reject = doParallel(reject$1);
-    var rejectLimit = doParallelLimit(reject$1);
-    var rejectSeries = doLimit(rejectLimit, 1);
-    function constant$1(value) {
-      return function() {
-        return value;
-      };
-    }
-    function retry(opts, task, callback) {
-      var DEFAULT_TIMES = 5;
-      var DEFAULT_INTERVAL = 0;
-      var options = {
-        times: DEFAULT_TIMES,
-        intervalFunc: constant$1(DEFAULT_INTERVAL)
-      };
-      function parseTimes(acc, t) {
-        if (typeof t === "object") {
-          acc.times = +t.times || DEFAULT_TIMES;
-          acc.intervalFunc = typeof t.interval === "function" ? t.interval : constant$1(+t.interval || DEFAULT_INTERVAL);
-          acc.errorFilter = t.errorFilter;
-        } else if (typeof t === "number" || typeof t === "string") {
-          acc.times = +t || DEFAULT_TIMES;
-        } else {
-          throw new Error("Invalid arguments for async.retry");
-        }
-      }
-      if (arguments.length < 3 && typeof opts === "function") {
-        callback = task || noop2;
-        task = opts;
-      } else {
-        parseTimes(options, opts);
-        callback = callback || noop2;
-      }
-      if (typeof task !== "function") {
-        throw new Error("Invalid arguments for async.retry");
-      }
-      var _task = wrapAsync(task);
-      var attempt = 1;
-      function retryAttempt() {
-        _task(function(err) {
-          if (err && attempt++ < options.times && (typeof options.errorFilter != "function" || options.errorFilter(err))) {
-            setTimeout(retryAttempt, options.intervalFunc(attempt));
-          } else {
-            callback.apply(null, arguments);
-          }
-        });
-      }
-      retryAttempt();
-    }
-    var retryable = function(opts, task) {
-      if (!task) {
-        task = opts;
-        opts = null;
-      }
-      var _task = wrapAsync(task);
-      return initialParams(function(args, callback) {
-        function taskFn(cb) {
-          _task.apply(null, args.concat(cb));
-        }
-        if (opts) retry(opts, taskFn, callback);
-        else retry(taskFn, callback);
-      });
-    };
-    function series(tasks, callback) {
-      _parallel(eachOfSeries, tasks, callback);
-    }
-    var some = doParallel(_createTester(Boolean, identity));
-    var someLimit = doParallelLimit(_createTester(Boolean, identity));
-    var someSeries = doLimit(someLimit, 1);
-    function sortBy(coll, iteratee, callback) {
-      var _iteratee = wrapAsync(iteratee);
-      map(coll, function(x, callback2) {
-        _iteratee(x, function(err, criteria) {
-          if (err) return callback2(err);
-          callback2(null, { value: x, criteria });
-        });
-      }, function(err, results) {
-        if (err) return callback(err);
-        callback(null, arrayMap(results.sort(comparator), baseProperty("value")));
-      });
-      function comparator(left, right) {
-        var a = left.criteria, b = right.criteria;
-        return a < b ? -1 : a > b ? 1 : 0;
-      }
-    }
-    function timeout(asyncFn, milliseconds, info) {
-      var fn = wrapAsync(asyncFn);
-      return initialParams(function(args, callback) {
-        var timedOut = false;
-        var timer;
-        function timeoutCallback() {
-          var name = asyncFn.name || "anonymous";
-          var error = new Error('Callback function "' + name + '" timed out.');
-          error.code = "ETIMEDOUT";
-          if (info) {
-            error.info = info;
-          }
-          timedOut = true;
-          callback(error);
-        }
-        args.push(function() {
-          if (!timedOut) {
-            callback.apply(null, arguments);
-            clearTimeout(timer);
-          }
-        });
-        timer = setTimeout(timeoutCallback, milliseconds);
-        fn.apply(null, args);
-      });
-    }
-    var nativeCeil = Math.ceil;
-    var nativeMax = Math.max;
-    function baseRange(start, end, step, fromRight) {
-      var index2 = -1, length = nativeMax(nativeCeil((end - start) / step), 0), result2 = Array(length);
-      while (length--) {
-        result2[++index2] = start;
-        start += step;
-      }
-      return result2;
-    }
-    function timeLimit(count, limit, iteratee, callback) {
-      var _iteratee = wrapAsync(iteratee);
-      mapLimit(baseRange(0, count, 1), limit, _iteratee, callback);
-    }
-    var times = doLimit(timeLimit, Infinity);
-    var timesSeries = doLimit(timeLimit, 1);
-    function transform(coll, accumulator, iteratee, callback) {
-      if (arguments.length <= 3) {
-        callback = iteratee;
-        iteratee = accumulator;
-        accumulator = isArray(coll) ? [] : {};
-      }
-      callback = once(callback || noop2);
-      var _iteratee = wrapAsync(iteratee);
-      eachOf(coll, function(v, k, cb) {
-        _iteratee(accumulator, v, k, cb);
-      }, function(err) {
-        callback(err, accumulator);
-      });
-    }
-    function tryEach(tasks, callback) {
-      var error = null;
-      var result2;
-      callback = callback || noop2;
-      eachSeries(tasks, function(task, callback2) {
-        wrapAsync(task)(function(err, res) {
-          if (arguments.length > 2) {
-            result2 = slice(arguments, 1);
-          } else {
-            result2 = res;
-          }
-          error = err;
-          callback2(!err);
-        });
-      }, function() {
-        callback(error, result2);
-      });
-    }
-    function unmemoize(fn) {
-      return function() {
-        return (fn.unmemoized || fn).apply(null, arguments);
-      };
-    }
-    function whilst(test, iteratee, callback) {
-      callback = onlyOnce(callback || noop2);
-      var _iteratee = wrapAsync(iteratee);
-      if (!test()) return callback(null);
-      var next = function(err) {
-        if (err) return callback(err);
-        if (test()) return _iteratee(next);
-        var args = slice(arguments, 1);
-        callback.apply(null, [null].concat(args));
-      };
-      _iteratee(next);
-    }
-    function until(test, iteratee, callback) {
-      whilst(function() {
-        return !test.apply(this, arguments);
-      }, iteratee, callback);
-    }
-    var waterfall = function(tasks, callback) {
-      callback = once(callback || noop2);
-      if (!isArray(tasks)) return callback(new Error("First argument to waterfall must be an array of functions"));
-      if (!tasks.length) return callback();
-      var taskIndex = 0;
-      function nextTask(args) {
-        var task = wrapAsync(tasks[taskIndex++]);
-        args.push(onlyOnce(next));
-        task.apply(null, args);
-      }
-      function next(err) {
-        if (err || taskIndex === tasks.length) {
-          return callback.apply(null, arguments);
-        }
-        nextTask(slice(arguments, 1));
-      }
-      nextTask([]);
-    };
-    var index = {
-      apply,
-      applyEach,
-      applyEachSeries,
-      asyncify,
-      auto,
-      autoInject,
-      cargo,
-      compose,
-      concat,
-      concatLimit,
-      concatSeries,
-      constant,
-      detect,
-      detectLimit,
-      detectSeries,
-      dir,
-      doDuring,
-      doUntil,
-      doWhilst,
-      during,
-      each: eachLimit,
-      eachLimit: eachLimit$1,
-      eachOf,
-      eachOfLimit,
-      eachOfSeries,
-      eachSeries,
-      ensureAsync,
-      every,
-      everyLimit,
-      everySeries,
-      filter,
-      filterLimit,
-      filterSeries,
-      forever,
-      groupBy,
-      groupByLimit,
-      groupBySeries,
-      log,
-      map,
-      mapLimit,
-      mapSeries,
-      mapValues,
-      mapValuesLimit,
-      mapValuesSeries,
-      memoize,
-      nextTick,
-      parallel: parallelLimit,
-      parallelLimit: parallelLimit$1,
-      priorityQueue,
-      queue: queue$1,
-      race,
-      reduce,
-      reduceRight,
-      reflect,
-      reflectAll,
-      reject,
-      rejectLimit,
-      rejectSeries,
-      retry,
-      retryable,
-      seq,
-      series,
-      setImmediate: setImmediate$1,
-      some,
-      someLimit,
-      someSeries,
-      sortBy,
-      timeout,
-      times,
-      timesLimit: timeLimit,
-      timesSeries,
-      transform,
-      tryEach,
-      unmemoize,
-      until,
-      waterfall,
-      whilst,
-      // aliases
-      all: every,
-      allLimit: everyLimit,
-      allSeries: everySeries,
-      any: some,
-      anyLimit: someLimit,
-      anySeries: someSeries,
-      find: detect,
-      findLimit: detectLimit,
-      findSeries: detectSeries,
-      forEach: eachLimit,
-      forEachSeries: eachSeries,
-      forEachLimit: eachLimit$1,
-      forEachOf: eachOf,
-      forEachOfSeries: eachOfSeries,
-      forEachOfLimit: eachOfLimit,
-      inject: reduce,
-      foldl: reduce,
-      foldr: reduceRight,
-      select: filter,
-      selectLimit: filterLimit,
-      selectSeries: filterSeries,
-      wrapSync: asyncify
-    };
-    exports$12["default"] = index;
-    exports$12.apply = apply;
-    exports$12.applyEach = applyEach;
-    exports$12.applyEachSeries = applyEachSeries;
-    exports$12.asyncify = asyncify;
-    exports$12.auto = auto;
-    exports$12.autoInject = autoInject;
-    exports$12.cargo = cargo;
-    exports$12.compose = compose;
-    exports$12.concat = concat;
-    exports$12.concatLimit = concatLimit;
-    exports$12.concatSeries = concatSeries;
-    exports$12.constant = constant;
-    exports$12.detect = detect;
-    exports$12.detectLimit = detectLimit;
-    exports$12.detectSeries = detectSeries;
-    exports$12.dir = dir;
-    exports$12.doDuring = doDuring;
-    exports$12.doUntil = doUntil;
-    exports$12.doWhilst = doWhilst;
-    exports$12.during = during;
-    exports$12.each = eachLimit;
-    exports$12.eachLimit = eachLimit$1;
-    exports$12.eachOf = eachOf;
-    exports$12.eachOfLimit = eachOfLimit;
-    exports$12.eachOfSeries = eachOfSeries;
-    exports$12.eachSeries = eachSeries;
-    exports$12.ensureAsync = ensureAsync;
-    exports$12.every = every;
-    exports$12.everyLimit = everyLimit;
-    exports$12.everySeries = everySeries;
-    exports$12.filter = filter;
-    exports$12.filterLimit = filterLimit;
-    exports$12.filterSeries = filterSeries;
-    exports$12.forever = forever;
-    exports$12.groupBy = groupBy;
-    exports$12.groupByLimit = groupByLimit;
-    exports$12.groupBySeries = groupBySeries;
-    exports$12.log = log;
-    exports$12.map = map;
-    exports$12.mapLimit = mapLimit;
-    exports$12.mapSeries = mapSeries;
-    exports$12.mapValues = mapValues;
-    exports$12.mapValuesLimit = mapValuesLimit;
-    exports$12.mapValuesSeries = mapValuesSeries;
-    exports$12.memoize = memoize;
-    exports$12.nextTick = nextTick;
-    exports$12.parallel = parallelLimit;
-    exports$12.parallelLimit = parallelLimit$1;
-    exports$12.priorityQueue = priorityQueue;
-    exports$12.queue = queue$1;
-    exports$12.race = race;
-    exports$12.reduce = reduce;
-    exports$12.reduceRight = reduceRight;
-    exports$12.reflect = reflect;
-    exports$12.reflectAll = reflectAll;
-    exports$12.reject = reject;
-    exports$12.rejectLimit = rejectLimit;
-    exports$12.rejectSeries = rejectSeries;
-    exports$12.retry = retry;
-    exports$12.retryable = retryable;
-    exports$12.seq = seq;
-    exports$12.series = series;
-    exports$12.setImmediate = setImmediate$1;
-    exports$12.some = some;
-    exports$12.someLimit = someLimit;
-    exports$12.someSeries = someSeries;
-    exports$12.sortBy = sortBy;
-    exports$12.timeout = timeout;
-    exports$12.times = times;
-    exports$12.timesLimit = timeLimit;
-    exports$12.timesSeries = timesSeries;
-    exports$12.transform = transform;
-    exports$12.tryEach = tryEach;
-    exports$12.unmemoize = unmemoize;
-    exports$12.until = until;
-    exports$12.waterfall = waterfall;
-    exports$12.whilst = whilst;
-    exports$12.all = every;
-    exports$12.allLimit = everyLimit;
-    exports$12.allSeries = everySeries;
-    exports$12.any = some;
-    exports$12.anyLimit = someLimit;
-    exports$12.anySeries = someSeries;
-    exports$12.find = detect;
-    exports$12.findLimit = detectLimit;
-    exports$12.findSeries = detectSeries;
-    exports$12.forEach = eachLimit;
-    exports$12.forEachSeries = eachSeries;
-    exports$12.forEachLimit = eachLimit$1;
-    exports$12.forEachOf = eachOf;
-    exports$12.forEachOfSeries = eachOfSeries;
-    exports$12.forEachOfLimit = eachOfLimit;
-    exports$12.inject = reduce;
-    exports$12.foldl = reduce;
-    exports$12.foldr = reduceRight;
-    exports$12.select = filter;
-    exports$12.selectLimit = filterLimit;
-    exports$12.selectSeries = filterSeries;
-    exports$12.wrapSync = asyncify;
-    Object.defineProperty(exports$12, "__esModule", { value: true });
-  });
-})(async$1, async$1.exports);
-var asyncExports = async$1.exports;
-var fs = require$$1$1;
-var net = require$$0$2;
-var path = require$$2;
-fs.existsSync = fs.existsSync || path.existsSync;
-var utils = utilsExports;
-var fsWatcher = fsWatcher$1;
-var async = asyncExports;
-var watcherName = "dataWatcher";
-var geodatadir = path.resolve(
-  __dirname,
-  commonjsGlobal.geodatadir || process.env.GEODATADIR || "../data/"
-);
-var dataFiles = {
-  city: path.join(geodatadir, "geoip-city.dat"),
-  city6: path.join(geodatadir, "geoip-city6.dat"),
-  cityNames: path.join(geodatadir, "geoip-city-names.dat"),
-  country: path.join(geodatadir, "geoip-country.dat"),
-  country6: path.join(geodatadir, "geoip-country6.dat")
-};
-var privateRange4 = [
-  [utils.aton4("10.0.0.0"), utils.aton4("10.255.255.255")],
-  [utils.aton4("172.16.0.0"), utils.aton4("172.31.255.255")],
-  [utils.aton4("192.168.0.0"), utils.aton4("192.168.255.255")]
-];
-var conf4 = {
-  firstIP: null,
-  lastIP: null,
-  lastLine: 0,
-  locationBuffer: null,
-  locationRecordSize: 88,
-  mainBuffer: null,
-  recordSize: 24
-};
-var conf6 = {
-  firstIP: null,
-  lastIP: null,
-  lastLine: 0,
-  mainBuffer: null,
-  recordSize: 48
-};
-var cache4 = JSON.parse(JSON.stringify(conf4));
-var cache6 = JSON.parse(JSON.stringify(conf6));
-var RECORD_SIZE = 10;
-var RECORD_SIZE6 = 34;
-function lookup4(ip) {
-  var fline = 0;
-  var floor = cache4.lastIP;
-  var cline = cache4.lastLine;
-  var ceil = cache4.firstIP;
-  var line;
-  var locId;
-  var buffer = cache4.mainBuffer;
-  var locBuffer = cache4.locationBuffer;
-  var privateRange = privateRange4;
-  var recordSize = cache4.recordSize;
-  var locRecordSize = cache4.locationRecordSize;
-  var i;
-  var geodata = {
-    range: "",
-    country: "",
-    region: "",
-    eu: "",
-    timezone: "",
-    city: "",
-    ll: [null, null]
-  };
-  if (ip > cache4.lastIP || ip < cache4.firstIP) {
-    return null;
-  }
-  for (i = 0; i < privateRange.length; i++) {
-    if (ip >= privateRange[i][0] && ip <= privateRange[i][1]) {
-      return null;
-    }
-  }
-  do {
-    line = Math.round((cline - fline) / 2) + fline;
-    floor = buffer.readUInt32BE(line * recordSize);
-    ceil = buffer.readUInt32BE(line * recordSize + 4);
-    if (floor <= ip && ceil >= ip) {
-      geodata.range = [floor, ceil];
-      if (recordSize === RECORD_SIZE) {
-        geodata.country = buffer.toString("utf8", line * recordSize + 8, line * recordSize + 10);
-      } else {
-        locId = buffer.readUInt32BE(line * recordSize + 8);
-        if (-1 >>> 0 > locId) {
-          geodata.country = locBuffer.toString("utf8", locId * locRecordSize + 0, locId * locRecordSize + 2).replace(/\u0000.*/, "");
-          geodata.region = locBuffer.toString("utf8", locId * locRecordSize + 2, locId * locRecordSize + 5).replace(/\u0000.*/, "");
-          geodata.metro = locBuffer.readInt32BE(locId * locRecordSize + 5);
-          geodata.ll[0] = buffer.readInt32BE(line * recordSize + 12) / 1e4;
-          geodata.ll[1] = buffer.readInt32BE(line * recordSize + 16) / 1e4;
-          geodata.area = buffer.readUInt32BE(line * recordSize + 20);
-          geodata.eu = locBuffer.toString("utf8", locId * locRecordSize + 9, locId * locRecordSize + 10).replace(/\u0000.*/, "");
-          geodata.timezone = locBuffer.toString("utf8", locId * locRecordSize + 10, locId * locRecordSize + 42).replace(/\u0000.*/, "");
-          geodata.city = locBuffer.toString("utf8", locId * locRecordSize + 42, locId * locRecordSize + locRecordSize).replace(/\u0000.*/, "");
-        }
-      }
-      return geodata;
-    } else if (fline === cline) {
-      return null;
-    } else if (fline === cline - 1) {
-      if (line === fline) {
-        fline = cline;
-      } else {
-        cline = fline;
-      }
-    } else if (floor > ip) {
-      cline = line;
-    } else if (ceil < ip) {
-      fline = line;
-    }
-  } while (1);
-}
-function lookup6(ip) {
-  var buffer = cache6.mainBuffer;
-  var recordSize = cache6.recordSize;
-  var locBuffer = cache4.locationBuffer;
-  var locRecordSize = cache4.locationRecordSize;
-  var geodata = {
-    range: "",
-    country: "",
-    region: "",
-    city: "",
-    ll: [0, 0]
-  };
-  function readip(line2, offset) {
-    var ii = 0;
-    var ip2 = [];
-    for (ii = 0; ii < 2; ii++) {
-      ip2.push(buffer.readUInt32BE(line2 * recordSize + offset * 16 + ii * 4));
-    }
-    return ip2;
-  }
-  cache6.lastIP = readip(cache6.lastLine, 1);
-  cache6.firstIP = readip(0, 0);
-  var fline = 0;
-  var floor = cache6.lastIP;
-  var cline = cache6.lastLine;
-  var ceil = cache6.firstIP;
-  var line;
-  var locId;
-  if (utils.cmp6(ip, cache6.lastIP) > 0 || utils.cmp6(ip, cache6.firstIP) < 0) {
-    return null;
-  }
-  do {
-    line = Math.round((cline - fline) / 2) + fline;
-    floor = readip(line, 0);
-    ceil = readip(line, 1);
-    if (utils.cmp6(floor, ip) <= 0 && utils.cmp6(ceil, ip) >= 0) {
-      if (recordSize === RECORD_SIZE6) {
-        geodata.country = buffer.toString("utf8", line * recordSize + 32, line * recordSize + 34).replace(/\u0000.*/, "");
-      } else {
-        locId = buffer.readUInt32BE(line * recordSize + 32);
-        if (-1 >>> 0 > locId) {
-          geodata.country = locBuffer.toString("utf8", locId * locRecordSize + 0, locId * locRecordSize + 2).replace(/\u0000.*/, "");
-          geodata.region = locBuffer.toString("utf8", locId * locRecordSize + 2, locId * locRecordSize + 5).replace(/\u0000.*/, "");
-          geodata.metro = locBuffer.readInt32BE(locId * locRecordSize + 5);
-          geodata.ll[0] = buffer.readInt32BE(line * recordSize + 36) / 1e4;
-          geodata.ll[1] = buffer.readInt32BE(line * recordSize + 40) / 1e4;
-          geodata.area = buffer.readUInt32BE(line * recordSize + 44);
-          geodata.eu = locBuffer.toString("utf8", locId * locRecordSize + 9, locId * locRecordSize + 10).replace(/\u0000.*/, "");
-          geodata.timezone = locBuffer.toString("utf8", locId * locRecordSize + 10, locId * locRecordSize + 42).replace(/\u0000.*/, "");
-          geodata.city = locBuffer.toString("utf8", locId * locRecordSize + 42, locId * locRecordSize + locRecordSize).replace(/\u0000.*/, "");
-        }
-      }
-      return geodata;
-    } else if (fline === cline) {
-      return null;
-    } else if (fline === cline - 1) {
-      if (line === fline) {
-        fline = cline;
-      } else {
-        cline = fline;
-      }
-    } else if (utils.cmp6(floor, ip) > 0) {
-      cline = line;
-    } else if (utils.cmp6(ceil, ip) < 0) {
-      fline = line;
-    }
-  } while (1);
-}
-function get4mapped(ip) {
-  var ipv6 = ip.toUpperCase();
-  var v6prefixes = ["0:0:0:0:0:FFFF:", "::FFFF:"];
-  for (var i = 0; i < v6prefixes.length; i++) {
-    var v6prefix = v6prefixes[i];
-    if (ipv6.indexOf(v6prefix) == 0) {
-      return ipv6.substring(v6prefix.length);
-    }
-  }
-  return null;
-}
-function preload(callback) {
-  var datFile;
-  var datSize;
-  var asyncCache = JSON.parse(JSON.stringify(conf4));
-  if (typeof arguments[0] === "function") {
-    async.series([
-      function(cb) {
-        async.series([
-          function(cb2) {
-            fs.open(dataFiles.cityNames, "r", function(err, file) {
-              datFile = file;
-              cb2(err);
-            });
-          },
-          function(cb2) {
-            fs.fstat(datFile, function(err, stats) {
-              datSize = stats.size;
-              asyncCache.locationBuffer = Buffer.alloc(datSize);
-              cb2(err);
-            });
-          },
-          function(cb2) {
-            fs.read(datFile, asyncCache.locationBuffer, 0, datSize, 0, cb2);
-          },
-          function(cb2) {
-            fs.close(datFile, cb2);
-          },
-          function(cb2) {
-            fs.open(dataFiles.city, "r", function(err, file) {
-              datFile = file;
-              cb2(err);
-            });
-          },
-          function(cb2) {
-            fs.fstat(datFile, function(err, stats) {
-              datSize = stats.size;
-              cb2(err);
-            });
-          }
-        ], function(err) {
-          if (err) {
-            if (err.code !== "ENOENT" && err.code !== "EBADF") {
-              throw err;
-            }
-            fs.open(dataFiles.country, "r", function(err2, file) {
-              if (err2) {
-                cb(err2);
-              } else {
-                datFile = file;
-                fs.fstat(datFile, function(err3, stats) {
-                  datSize = stats.size;
-                  asyncCache.recordSize = RECORD_SIZE;
-                  cb();
-                });
-              }
-            });
-          } else {
-            cb();
-          }
-        });
-      },
-      function() {
-        asyncCache.mainBuffer = Buffer.alloc(datSize);
-        async.series([
-          function(cb2) {
-            fs.read(datFile, asyncCache.mainBuffer, 0, datSize, 0, cb2);
-          },
-          function(cb2) {
-            fs.close(datFile, cb2);
-          }
-        ], function(err) {
-          if (err) ;
-          else {
-            asyncCache.lastLine = datSize / asyncCache.recordSize - 1;
-            asyncCache.lastIP = asyncCache.mainBuffer.readUInt32BE(asyncCache.lastLine * asyncCache.recordSize + 4);
-            asyncCache.firstIP = asyncCache.mainBuffer.readUInt32BE(0);
-            cache4 = asyncCache;
-          }
-          callback(err);
-        });
-      }
-    ]);
-  } else {
-    try {
-      datFile = fs.openSync(dataFiles.cityNames, "r");
-      datSize = fs.fstatSync(datFile).size;
-      if (datSize === 0) {
-        throw {
-          code: "EMPTY_FILE"
-        };
-      }
-      cache4.locationBuffer = Buffer.alloc(datSize);
-      fs.readSync(datFile, cache4.locationBuffer, 0, datSize, 0);
-      fs.closeSync(datFile);
-      datFile = fs.openSync(dataFiles.city, "r");
-      datSize = fs.fstatSync(datFile).size;
-    } catch (err) {
-      if (err.code !== "ENOENT" && err.code !== "EBADF" && err.code !== "EMPTY_FILE") {
-        throw err;
-      }
-      datFile = fs.openSync(dataFiles.country, "r");
-      datSize = fs.fstatSync(datFile).size;
-      cache4.recordSize = RECORD_SIZE;
-    }
-    cache4.mainBuffer = Buffer.alloc(datSize);
-    fs.readSync(datFile, cache4.mainBuffer, 0, datSize, 0);
-    fs.closeSync(datFile);
-    cache4.lastLine = datSize / cache4.recordSize - 1;
-    cache4.lastIP = cache4.mainBuffer.readUInt32BE(cache4.lastLine * cache4.recordSize + 4);
-    cache4.firstIP = cache4.mainBuffer.readUInt32BE(0);
-  }
-}
-function preload6(callback) {
-  var datFile;
-  var datSize;
-  var asyncCache6 = JSON.parse(JSON.stringify(conf6));
-  if (typeof arguments[0] === "function") {
-    async.series([
-      function(cb) {
-        async.series([
-          function(cb2) {
-            fs.open(dataFiles.city6, "r", function(err, file) {
-              datFile = file;
-              cb2(err);
-            });
-          },
-          function(cb2) {
-            fs.fstat(datFile, function(err, stats) {
-              datSize = stats.size;
-              cb2(err);
-            });
-          }
-        ], function(err) {
-          if (err) {
-            if (err.code !== "ENOENT" && err.code !== "EBADF") {
-              throw err;
-            }
-            fs.open(dataFiles.country6, "r", function(err2, file) {
-              if (err2) {
-                cb(err2);
-              } else {
-                datFile = file;
-                fs.fstat(datFile, function(err3, stats) {
-                  datSize = stats.size;
-                  asyncCache6.recordSize = RECORD_SIZE6;
-                  cb();
-                });
-              }
-            });
-          } else {
-            cb();
-          }
-        });
-      },
-      function() {
-        asyncCache6.mainBuffer = Buffer.alloc(datSize);
-        async.series([
-          function(cb2) {
-            fs.read(datFile, asyncCache6.mainBuffer, 0, datSize, 0, cb2);
-          },
-          function(cb2) {
-            fs.close(datFile, cb2);
-          }
-        ], function(err) {
-          if (err) ;
-          else {
-            asyncCache6.lastLine = datSize / asyncCache6.recordSize - 1;
-            cache6 = asyncCache6;
-          }
-          callback(err);
-        });
-      }
-    ]);
-  } else {
-    try {
-      datFile = fs.openSync(dataFiles.city6, "r");
-      datSize = fs.fstatSync(datFile).size;
-      if (datSize === 0) {
-        throw {
-          code: "EMPTY_FILE"
-        };
-      }
-    } catch (err) {
-      if (err.code !== "ENOENT" && err.code !== "EBADF" && err.code !== "EMPTY_FILE") {
-        throw err;
-      }
-      datFile = fs.openSync(dataFiles.country6, "r");
-      datSize = fs.fstatSync(datFile).size;
-      cache6.recordSize = RECORD_SIZE6;
-    }
-    cache6.mainBuffer = Buffer.alloc(datSize);
-    fs.readSync(datFile, cache6.mainBuffer, 0, datSize, 0);
-    fs.closeSync(datFile);
-    cache6.lastLine = datSize / cache6.recordSize - 1;
-  }
-}
-var geoip = {
-  cmp: utils.cmp,
-  lookup: function(ip) {
-    if (!ip) {
-      return null;
-    } else if (typeof ip === "number") {
-      return lookup4(ip);
-    } else if (net.isIP(ip) === 4) {
-      return lookup4(utils.aton4(ip));
-    } else if (net.isIP(ip) === 6) {
-      var ipv4 = get4mapped(ip);
-      if (ipv4) {
-        return lookup4(utils.aton4(ipv4));
-      } else {
-        return lookup6(utils.aton6(ip));
-      }
-    }
-    return null;
-  },
-  pretty: function(n) {
-    if (typeof n === "string") {
-      return n;
-    } else if (typeof n === "number") {
-      return utils.ntoa4(n);
-    } else if (n instanceof Array) {
-      return utils.ntoa6(n);
-    }
-    return n;
-  },
-  // Start watching for data updates. The watcher waits one minute for file transfer to 
-  // completete before triggering the callback.
-  startWatchingDataUpdate: function(callback) {
-    fsWatcher.makeFsWatchFilter(watcherName, geodatadir, 60 * 1e3, function() {
-      async.series([
-        function(cb) {
-          preload(cb);
-        },
-        function(cb) {
-          preload6(cb);
-        }
-      ], callback);
-    });
-  },
-  // Stop watching for data updates.
-  stopWatchingDataUpdate: function() {
-    fsWatcher.stopWatching(watcherName);
-  },
-  //clear data
-  clear: function() {
-    cache4 = JSON.parse(JSON.stringify(conf4));
-    cache6 = JSON.parse(JSON.stringify(conf6));
-  },
-  // Reload data synchronously
-  reloadDataSync: function() {
-    preload();
-    preload6();
-  },
-  // Reload data asynchronously
-  reloadData: function(callback) {
-    async.series([
-      function(cb) {
-        preload(cb);
-      },
-      function(cb) {
-        preload6(cb);
-      }
-    ], callback);
-  }
-};
-preload();
-preload6();
-const geoip$1 = /* @__PURE__ */ getDefaultExportFromCjs(geoip);
-process.env.DIST = path$5.join(__dirname, "../dist");
-process.env.VITE_PUBLIC = electron.app.isPackaged ? process.env.DIST : path$5.join(__dirname, "../public");
+const geoip = require("geoip-lite");
+process.env.DIST = path$3.join(__dirname, "../dist");
+process.env.VITE_PUBLIC = electron.app.isPackaged ? process.env.DIST : path$3.join(__dirname, "../public");
 let win;
 let overlayWin = null;
 const VITE_DEV_SERVER_URL = process.env["VITE_DEV_SERVER_URL"];
@@ -20045,7 +17585,7 @@ function createOverlayWindow() {
     skipTaskbar: true,
     resizable: false,
     webPreferences: {
-      preload: path$5.join(__dirname, "preload.js"),
+      preload: path$3.join(__dirname, "preload.js"),
       nodeIntegration: false,
       contextIsolation: true
     }
@@ -20054,7 +17594,7 @@ function createOverlayWindow() {
   if (VITE_DEV_SERVER_URL) {
     overlayWin.loadURL(`${VITE_DEV_SERVER_URL}#/overlay`);
   } else {
-    overlayWin.loadFile(path$5.join(process.env.DIST || "", "index.html"), { hash: "overlay" });
+    overlayWin.loadFile(path$3.join(process.env.DIST || "", "index.html"), { hash: "overlay" });
   }
   overlayWin.on("closed", () => {
     overlayWin = null;
@@ -20064,9 +17604,9 @@ function createWindow() {
   win = new electron.BrowserWindow({
     width: 1e3,
     height: 800,
-    icon: path$5.join(process.env.VITE_PUBLIC || "", "electron-vite.svg"),
+    icon: path$3.join(process.env.VITE_PUBLIC || "", "electron-vite.svg"),
     webPreferences: {
-      preload: path$5.join(__dirname, "preload.js"),
+      preload: path$3.join(__dirname, "preload.js"),
       nodeIntegration: false,
       contextIsolation: true
     },
@@ -20079,7 +17619,7 @@ function createWindow() {
   if (VITE_DEV_SERVER_URL) {
     win.loadURL(VITE_DEV_SERVER_URL);
   } else {
-    win.loadFile(path$5.join(process.env.DIST || "", "index.html"));
+    win.loadFile(path$3.join(process.env.DIST || "", "index.html"));
   }
 }
 electron.app.on("window-all-closed", () => {
@@ -20094,14 +17634,14 @@ electron.app.on("activate", () => {
 });
 electron.app.whenReady().then(() => {
   createWindow();
-  electron.ipcMain.handle("get-network-stats", async () => {
+  electron.ipcMain.handle("get-traffic-stats", async () => {
     try {
       const networkStats2 = await si.networkStats();
       const defaultInterface = await si.networkInterfaceDefault();
       const stats = networkStats2.find((iface) => iface.iface === defaultInterface) || networkStats2[0];
       return stats;
     } catch (error) {
-      console.error("Error fetching network stats:", error);
+      console.error("Error fetching traffic stats:", error);
       return null;
     }
   });
@@ -20111,51 +17651,6 @@ electron.app.whenReady().then(() => {
       return connections;
     } catch (error) {
       console.error("Error fetching connections:", error);
-      return [];
-    }
-  });
-  electron.ipcMain.handle("get-process-usage", async () => {
-    try {
-      const [connections, networkStats2, defaultInterface] = await Promise.all([
-        si.networkConnections(),
-        si.networkStats(),
-        si.networkInterfaceDefault()
-      ]);
-      const ifaceStats = networkStats2.find((iface) => iface.iface === defaultInterface) || networkStats2[0];
-      const rxSec = (ifaceStats == null ? void 0 : ifaceStats.rx_sec) || 0;
-      const txSec = (ifaceStats == null ? void 0 : ifaceStats.tx_sec) || 0;
-      const aggregated = /* @__PURE__ */ new Map();
-      connections.forEach((conn) => {
-        const pid = typeof conn.pid === "number" ? conn.pid : -1;
-        const existing = aggregated.get(pid) || { name: conn.process || "System", pid, connections: 0, tcp: 0, udp: 0 };
-        existing.connections += 1;
-        const protocol = (conn.protocol || "").toLowerCase();
-        if (protocol.startsWith("tcp")) {
-          existing.tcp += 1;
-        } else if (protocol.startsWith("udp")) {
-          existing.udp += 1;
-        }
-        existing.name = conn.process || existing.name;
-        aggregated.set(pid, existing);
-      });
-      const totals = Array.from(aggregated.values());
-      const connectionTotal = totals.reduce((sum, entry) => sum + entry.connections, 0) || 1;
-      const ranked = totals.map((entry) => {
-        const ratio = entry.connections / connectionTotal;
-        return {
-          pid: entry.pid,
-          name: entry.name,
-          connections: entry.connections,
-          tcp: entry.tcp,
-          udp: entry.udp,
-          rx: rxSec * ratio,
-          tx: txSec * ratio,
-          activityScore: ratio
-        };
-      }).sort((a, b) => b.activityScore - a.activityScore).slice(0, 8);
-      return ranked;
-    } catch (error) {
-      console.error("Error fetching process usage:", error);
       return [];
     }
   });
@@ -20175,13 +17670,22 @@ electron.app.whenReady().then(() => {
       });
     });
   });
-  electron.ipcMain.handle("get-ip-location", async (_event, ip) => {
+  electron.ipcMain.handle("get-ip-locations", async (_event, ips) => {
     try {
-      const geo = geoip$1.lookup(ip);
-      return geo ? { lat: geo.ll[0], lon: geo.ll[1], country: geo.country, city: geo.city } : null;
+      const uniqueIps = [...new Set(ips)];
+      const results = {};
+      for (const ip of uniqueIps) {
+        const geo = geoip.lookup(ip);
+        if (geo) {
+          results[ip] = { lat: geo.ll[0], lon: geo.ll[1], country: geo.country, city: geo.city };
+        } else {
+          results[ip] = null;
+        }
+      }
+      return results;
     } catch (error) {
-      console.error(`Failed to lookup IP ${ip}:`, error);
-      return null;
+      console.error(`Failed to lookup IPs:`, error);
+      return {};
     }
   });
   electron.ipcMain.handle("toggle-overlay", () => {

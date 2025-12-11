@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from 'react'
+import { useMemo, useState, useEffect, memo } from 'react'
 import Globe from 'react-globe.gl'
 import { Globe as GlobeIcon } from 'lucide-react'
 import { Card } from '../ui/Card'
@@ -9,8 +9,22 @@ interface GlobeViewProps {
     connections: Connection[]
 }
 
+// Memoize the Globe component to prevent re-renders when parent updates but props are same
+const MemoizedGlobe = memo(Globe);
+
 export function GlobeView({ connections }: GlobeViewProps) {
     const [dimensions, setDimensions] = useState({ width: 800, height: 600 })
+    const [isVisible, setIsVisible] = useState(true);
+
+    // Optimization: Pause rendering if not visible (e.g. tab switch)
+    // This requires the parent to unmount or hide us, but we can also check visibility API
+    useEffect(() => {
+        const handleVisibilityChange = () => {
+            setIsVisible(document.visibilityState === 'visible');
+        };
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+        return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+    }, []);
 
     // Extract unique remote IPs
     const uniqueIps = useMemo(() => {
@@ -24,16 +38,6 @@ export function GlobeView({ connections }: GlobeViewProps) {
     }, [connections])
 
     const { locations } = useGeoLocation(uniqueIps)
-
-    // My location (approximate center of map or inferred)
-    // For now, let's assume a default "Home" location or try to get it from a public IP service if we wanted.
-    // But since we are offline-first, let's just use a fixed point or the first resolved IP as "near me" if we can't determine.
-    // Actually, we can just visualize the destination points.
-    // Or better, draw arcs from a "Home" point. Let's pick a default (e.g., London) or just show points.
-    // Showing points is safer than assuming user location.
-
-    // Let's create arcs from a hypothetical center (e.g. 0,0) just to show connections? No, that's confusing.
-    // Let's just show rings at the destination.
 
     const gData = useMemo(() => {
         return locations.map(loc => ({
@@ -62,10 +66,12 @@ export function GlobeView({ connections }: GlobeViewProps) {
         return () => window.removeEventListener('resize', handleResize)
     }, [])
 
+    if (!isVisible) return <div className="h-full bg-slate-950/50" />;
+
     return (
         <Card title="Global Connections" icon={GlobeIcon} className="h-full flex flex-col overflow-hidden p-0">
             <div id="globe-container" className="flex-1 relative bg-slate-950/50 rounded-b-3xl overflow-hidden">
-                <Globe
+                <MemoizedGlobe
                     width={dimensions.width}
                     height={dimensions.height}
                     globeImageUrl="//unpkg.com/three-globe/example/img/earth-night.jpg"
@@ -77,6 +83,8 @@ export function GlobeView({ connections }: GlobeViewProps) {
                     atmosphereColor="#3b82f6"
                     atmosphereAltitude={0.15}
                     backgroundColor="rgba(0,0,0,0)"
+                    // Performance settings: 'default' allows the OS to choose the power efficient GPU (iGPU)
+                    rendererConfig={{ powerPreference: "default", antialias: false, alpha: true }}
                 />
                 <div className="absolute bottom-4 left-4 bg-slate-900/80 p-3 rounded-lg backdrop-blur border border-slate-700/50">
                     <p className="text-xs text-slate-400">Active Locations</p>

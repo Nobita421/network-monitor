@@ -6,11 +6,10 @@ interface Window {
     off: (channel: string, ...args: any[]) => void
     send: (channel: string, ...args: any[]) => void
     invoke: (channel: string, ...args: any[]) => Promise<any>
-    getNetworkStats: () => Promise<any>
+    getTrafficStats: () => Promise<any>
     getNetworkConnections: () => Promise<any[]>
-    getProcessUsage: () => Promise<any[]>
     killProcess: (pid: number) => Promise<boolean>
-    getIpLocation: (ip: string) => Promise<{ lat: number; lon: number; country: string; city: string } | null>
+    getIpLocations: (ips: string[]) => Promise<Record<string, { lat: number; lon: number; country: string; city: string } | null>>
     toggleOverlay: () => Promise<boolean>
   }
 }
