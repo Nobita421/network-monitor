@@ -67,3 +67,10 @@ export const progressWidthClass = (ratio: number) => {
   if (ratio >= 0.2) return 'w-[35%]'
   return 'w-[18%]'
 }
+
+export function formatMinutesDuration(minutes: number) {
+  if (minutes < 1) {
+    return `${Math.round(minutes * 60)} sec`
+  }
+  return `${Number(minutes).toFixed(1).replace(/\.0$/, '')} min`
+}
