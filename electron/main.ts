@@ -1,5 +1,6 @@
 import { app, BrowserWindow, ipcMain } from 'electron'
 import path from 'node:path'
+import * as fs from 'node:fs'
 import si from 'systeminformation'
 import kill from 'tree-kill'
 // Configure geoip-lite data directory
@@ -159,11 +160,47 @@ app.whenReady().then(() => {
       // Deduplicate IPs to save processing
       const uniqueIps = [...new Set(ips)];
       const results: Record<string, any> = {};
+
+      // Initialize MaxMind ASN reader if available
+      let asnReader: any = null;
+      const asnPath = path.join((global as any).geodatadir, 'GeoLite2-ASN.mmdb');
+      
+      // LEGAL: Check if file exists before attempting to open
+      if (fs.existsSync(asnPath)) {
+        try {
+            const Reader = require('@maxmind/geoip2-node').Reader;
+            asnReader = Reader.open(asnPath);
+        } catch (e) {
+            console.warn('Failed to open ASN Database:', e);
+        }
+      } else {
+         // console.debug('ASN Database not found at:', asnPath);
+      }
       
       for (const ip of uniqueIps) {
         const geo = geoip.lookup(ip);
+        let isp = asnReader ? 'Unknown ISP' : 'ISP Info Unavailable (No DB)';
+        let asn = '';
+
+        if (asnReader) {
+            try {
+                const response = asnReader.asn(ip);
+                isp = response.autonomousSystemOrganization || 'Unknown ISP';
+                asn = response.autonomousSystemNumber ? `AS${response.autonomousSystemNumber}` : '';
+            } catch (e) {
+                // IP not found in ASN DB
+            }
+        }
+
         if (geo) {
-          results[ip] = { lat: geo.ll[0], lon: geo.ll[1], country: geo.country, city: geo.city };
+          results[ip] = { 
+              lat: geo.ll[0], 
+              lon: geo.ll[1], 
+              country: geo.country, 
+              city: geo.city,
+              isp: isp,
+              asn: asn
+           };
         } else {
           results[ip] = null;
         }
@@ -172,6 +209,36 @@ app.whenReady().then(() => {
     } catch (error) {
       console.error(`Failed to lookup IPs:`, error);
       return {};
+    }
+  })
+
+  // SECURITY: Validate kill request
+  ipcMain.handle('kill-process', async (_event, pid: number) => {
+    // 1. Basic Int check
+    if (!Number.isInteger(pid)) return false;
+
+    // 2. SECURITY: PID range check (protect system processes)
+    // Windows PIDs 0, 4 are system. Most restricted system procs are low.
+    // 1000 is a safe conservative lower bound for user applications in this context.
+    if (pid < 1000) {
+        console.warn(`SECURITY BLOCKED: Attempt to kill low PID ${pid}`);
+        return false;
+    }
+
+    try {
+        // Option 3: Verification against active connections (Optimization for later)
+        // For now, the PID range check + User Initiated Action is a good baseline.
+        
+        await new Promise<void>((resolve, reject) => {
+            kill(pid, 'SIGKILL', (err) => {
+                if (err) reject(err);
+                else resolve();
+            });
+        });
+        return true;
+    } catch (error) {
+        console.error(`Failed to kill process ${pid}:`, error);
+        return false;
     }
   })
 
