@@ -38,8 +38,8 @@ export function useSettings() {
     setSettings((prev) => ({
       ...prev,
       threshold: Math.max(0.5, thresholdMb) * 1024 * 1024,
-      cooldownMinutes: Math.max(1, cooldown),
-      pauseMinutes: Math.max(1, pauseMinutes),
+      cooldownMinutes: Math.max(5 / 60, cooldown),
+      pauseMinutes: Math.max(5 / 60, pauseMinutes),
     }))
     setIsModalOpen(false)
   }, [draft, settings])
