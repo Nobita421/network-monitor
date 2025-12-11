@@ -27,27 +27,11 @@ const MemoizedGlobe = memo(Globe);
 export function GlobeView({ connections }: GlobeViewProps) {
     const [dimensions, setDimensions] = useState({ width: 800, height: 600 })
     const [isVisible, setIsVisible] = useState(true);
-    // Use GlobeMethods interface from the library
     const globeRef = useRef<GlobeMethods | undefined>(undefined);
     // State for Custom Hover Card
     const [hoveredPoint, setHoveredPoint] = useState<GlobePoint | null>(null);
-    const hoverTimeout = useRef<NodeJS.Timeout | null>(null);
 
-    const handlePointHover = useCallback((point: object | null) => {
-        if (hoverTimeout.current) {
-            clearTimeout(hoverTimeout.current);
-            hoverTimeout.current = null;
-        }
-
-        if (point) {
-            setHoveredPoint(point as GlobePoint);
-        } else {
-            // Delay hiding to prevent flickering when moving to tooltip
-            hoverTimeout.current = setTimeout(() => {
-                setHoveredPoint(null);
-            }, 100);
-        }
-    }, []);
+    const [filterProcess, setFilterProcess] = useState('');
 
     // Optimization: Pause rendering if not visible (e.g. tab switch)
     useEffect(() => {
@@ -57,8 +41,6 @@ export function GlobeView({ connections }: GlobeViewProps) {
         document.addEventListener('visibilitychange', handleVisibilityChange);
         return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
     }, []);
-
-
 
     // Extract unique remote IPs
     const uniqueIps = useMemo(() => {
@@ -73,6 +55,14 @@ export function GlobeView({ connections }: GlobeViewProps) {
 
     const { locations, myLocation } = useGeoLocation(uniqueIps)
 
+    // Filter connections based on process name
+    const filteredConnections = useMemo(() => {
+        if (!filterProcess) return connections;
+        return connections.filter(c =>
+            (c.process || '').toLowerCase().includes(filterProcess.toLowerCase())
+        );
+    }, [connections, filterProcess]);
+
     // Group locations by coordinates and aggregate Process Names
     const uniqueLocations = useMemo(() => {
         const locMap = new Map<string, {
@@ -81,14 +71,14 @@ export function GlobeView({ connections }: GlobeViewProps) {
             city: string,
             country: string,
             ips: Set<string>,
-            processes: Map<string, number>
+            processes: Map<string, number>,
+            totalConns: number
         }>();
 
         // Quick lookup for Geo
-        // Explicitly type the map to help TS inference
         const ipToGeo = new Map<string, typeof locations[0]>(locations.map(l => [l.ip, l]));
 
-        connections.forEach(conn => {
+        filteredConnections.forEach(conn => {
             if (!conn.peerAddress || conn.peerAddress === '127.0.0.1' || conn.peerAddress === '::1') return;
 
             const geo = ipToGeo.get(conn.peerAddress);
@@ -102,75 +92,109 @@ export function GlobeView({ connections }: GlobeViewProps) {
                     city: geo.city,
                     country: geo.country,
                     ips: new Set([conn.peerAddress]),
-                    processes: new Map([[conn.process || 'System', 1]])
+                    processes: new Map([[conn.process || 'System', 1]]),
+                    totalConns: 1
                 });
             } else {
                 const entry = locMap.get(key)!;
                 entry.ips.add(conn.peerAddress);
                 const proc = conn.process || 'System';
                 entry.processes.set(proc, (entry.processes.get(proc) || 0) + 1);
+                entry.totalConns += 1;
             }
         });
 
         return Array.from(locMap.values());
-    }, [connections, locations]);
+    }, [filteredConnections, locations]);
 
-    const gData = useMemo(() => {
-        // Remote Locations
-        const points = uniqueLocations.map(loc => {
-            // Find top process
+    // Hex Bin Data (Remote Locations)
+    // We use uniqueLocations as the data source and map 'weight' to connection count
+    const hexData = useMemo(() => {
+        return uniqueLocations.map(loc => {
             const sortedProcs = [...loc.processes.entries()].sort((a, b) => b[1] - a[1]);
             const topProc = sortedProcs[0]?.[0] || 'Unknown';
-            const extraCount = loc.processes.size > 1 ? ` +${loc.processes.size - 1}` : '';
-
             return {
                 lat: loc.lat,
                 lng: loc.lon,
-                size: 0.15 + (Math.min(loc.ips.size, 5) * 0.05),
-                color: '#10b981', // Emerald 500
-                type: 'remote',
-                labelText: `${topProc}${extraCount}`,
-                // Data for hover (can be expanded later)
+                weight: loc.totalConns,
                 city: loc.city,
                 country: loc.country,
-                connCount: [...loc.ips].length
+                processes: loc.processes,
+                topProcess: topProc
             };
         });
+    }, [uniqueLocations]);
 
-        // Add "My Location" Point
-        if (myLocation) {
-            points.push({
-                lat: myLocation.lat,
-                lng: myLocation.lon,
-                size: 0.3,
-                color: '#3b82f6', // Blue 500
-                type: 'home',
-                labelText: 'ME',
-                city: myLocation.city,
-                country: myLocation.country,
-                connCount: 0
-            });
-        }
+    // Rings Data (Security / Threats)
+    // Mock logic: Flag IPs from specific "suspicious" countries or random check for demo
+    const ringsData = useMemo(() => {
+        return uniqueLocations
+            .filter(loc => {
+                // Mock Threat Intelligence: Flag "Russia", "China", or "Unknown" for demo (or specific IPs)
+                // In production, check `loc.ips` against a threat set.
+                // For visual V2 demo, let's flag any location with > 10 connections as "High Activity" (Yellow)
+                // And specific countries as "Threat" (Red)
+                // Note: This is just for visualization V2.
+                return loc.totalConns > 20 || ['Russia', 'China', 'North Korea'].includes(loc.country);
+            })
+            .map(loc => ({
+                lat: loc.lat,
+                lng: loc.lon,
+                maxR: 5,
+                propagationSpeed: 2,
+                repeatPeriod: 1000,
+                color: ['Russia', 'China', 'North Korea'].includes(loc.country) ? 'rgba(239, 68, 68, 0.8)' : 'rgba(234, 179, 8, 0.8)' // Red vs Yellow
+            }));
+    }, [uniqueLocations]);
 
-        return points;
-    }, [uniqueLocations, myLocation]);
-
-
-
-    // Arcs for Data Travel Direction
+    // Arcs for Data Travel Direction & Volume
     const arcsData = useMemo(() => {
         if (!myLocation) return [];
-        return uniqueLocations.map(loc => ({
-            startLat: loc.lat,
-            startLng: loc.lon,
-            endLat: myLocation.lat,
-            endLng: myLocation.lon,
-            color: '#10b981', // Emerald (Download)
-            dashLength: 0.4,
-            dashGap: 0.2,
-            animateTime: 2000 // Speed
-        }));
+
+        // Flatten connections to Arcs? Or Group by Location?
+        // Grouping by location is better for performance.
+        return uniqueLocations.map(loc => {
+            // Heuristic for bandwidth/speed (mock since we don't have per-conn bytes yet)
+            // Use connection count as a proxy for "activity volume" for now
+            const isHeavy = loc.totalConns > 5;
+            const isUpload = Math.random() > 0.7; // Mock direction (needs real data in V2.1)
+
+            return {
+                startLat: isUpload ? myLocation.lat : loc.lat,
+                startLng: isUpload ? myLocation.lon : loc.lon,
+                endLat: isUpload ? loc.lat : myLocation.lat,
+                endLng: isUpload ? loc.lon : myLocation.lon,
+                color: isUpload ? ['#f59e0b', '#ef4444'] : ['#10b981', '#3b82f6'], // Orange->Red (Up), Green->Blue (Down)
+                dashLength: isHeavy ? 0.6 : 0.2, // Longer dash for heavy traffic
+                dashGap: isHeavy ? 0.2 : 0.4,
+                animateTime: isHeavy ? 1000 : 3000, // Faster for heavy
+            };
+        });
     }, [uniqueLocations, myLocation]);
+
+    // Labels for Hexes (Top Process)
+    const labelsData = useMemo(() => {
+        return uniqueLocations.map(loc => {
+            const sortedProcs = [...loc.processes.entries()].sort((a, b) => b[1] - a[1]);
+            const topProc = sortedProcs[0]?.[0] || 'Unknown';
+            return {
+                lat: loc.lat,
+                lng: loc.lon,
+                text: topProc,
+                size: 1.2
+            }
+        });
+    }, [uniqueLocations]);
+
+    const handlePointClick = useCallback((point: any) => {
+        if (globeRef.current) {
+            globeRef.current.pointOfView({
+                lat: point.lat,
+                lng: point.lng,
+                altitude: 1.5
+            }, 1500);
+        }
+    }, []);
 
     useEffect(() => {
         const handleResize = () => {
@@ -192,25 +216,81 @@ export function GlobeView({ connections }: GlobeViewProps) {
     if (!isVisible) return <div className="h-full bg-slate-950/50" />;
 
     return (
-        <Card title="Global Connections" icon={GlobeIcon} className="h-full flex flex-col overflow-hidden p-0">
+        <Card
+            title="Global Intel"
+            icon={GlobeIcon}
+            className="h-full flex flex-col overflow-hidden p-0 relative"
+        >
+            {/* Filter Checkbox / Input */}
+            <div className="absolute top-4 right-14 z-10 flex items-center bg-slate-900/80 backdrop-blur rounded-lg border border-slate-700 p-1">
+                <input
+                    type="text"
+                    placeholder="Filter Process..."
+                    className="bg-transparent border-none text-xs text-white placeholder-slate-500 focus:ring-0 w-32 px-2"
+                    value={filterProcess}
+                    onChange={(e) => setFilterProcess(e.target.value)}
+                />
+            </div>
+
             <div id="globe-container" className="flex-1 relative bg-slate-950/50 rounded-b-3xl overflow-hidden">
                 <MemoizedGlobe
                     ref={globeRef}
                     width={dimensions.width}
                     height={dimensions.height}
-                    globeImageUrl="//unpkg.com/three-globe/example/img/earth-night.jpg"
+                    // Offline Asset
+                    globeImageUrl="assets/earth-night.jpg"
 
-                    // Points (Location & Home)
-                    pointsData={gData}
-                    pointAltitude={0.01}
-                    pointColor="color"
-                    pointRadius="size"
-                    pointLabel={() => ""} // Disable default tooltip
-                    onPointHover={handlePointHover} // Capture hover state
+                    // Hex Binning (Replaces simple Points)
+                    hexBinPointsData={hexData}
+                    hexBinPointWeight="weight"
+                    hexBinResolution={4}
+                    hexMargin={0.2}
+                    hexTopColor={() => '#10b981'} // Emerald Top
+                    hexSideColor={() => '#064e3b'} // Dark Emerald Side
+                    hexBinMerge={true}
+                    onHexClick={handlePointClick}
+                    onHexHover={(bin: any) => {
+                        if (!bin) {
+                            setHoveredPoint(null);
+                            return;
+                        }
+                        // bin.points contains the array of original data objects in this hex
+                        // Optimize: Find the heaviest point in the bin to show its Top Process
+                        const sortedPoints = bin.points.sort((a: any, b: any) => b.weight - a.weight);
+                        const mainPoint = sortedPoints[0];
+                        const totalConns = bin.sumWeight;
 
-                    // Atmosphere - Cyber Glow
+                        // Use pre-calculated topProcess from the main point
+                        const topProc = mainPoint.topProcess || 'Unknown';
+
+                        // Count unique processes across all points in bin (approximation for Speed)
+                        // Or just use the number of locations merged
+                        const mergedCount = bin.points.length;
+                        const extraCount = mergedCount > 1 ? ` +${mergedCount - 1} locs` : '';
+
+                        setHoveredPoint({
+                            lat: mainPoint.lat,
+                            lng: mainPoint.lng,
+                            city: mainPoint.city,
+                            country: mainPoint.country,
+                            connCount: totalConns,
+                            labelText: `${topProc}${extraCount}`,
+                            type: 'remote',
+                            size: 0, // unused for hover
+                            color: '', // unused for hover
+                        });
+                    }}
+
+                    // Security Rings
+                    ringsData={ringsData}
+                    ringColor="color"
+                    ringMaxRadius="maxR"
+                    ringPropagationSpeed="propagationSpeed"
+                    ringRepeatPeriod="repeatPeriod"
+
+                    // Atmosphere
                     atmosphereColor="#3b82f6"
-                    atmosphereAltitude={0.2}
+                    atmosphereAltitude={0.15}
 
                     // Arcs - Traffic Flow
                     arcsData={arcsData}
@@ -218,15 +298,16 @@ export function GlobeView({ connections }: GlobeViewProps) {
                     arcDashLength="dashLength"
                     arcDashGap="dashGap"
                     arcDashAnimateTime="animateTime"
+                    arcStroke={0.5}
 
-                    // Labels - Persistent Process Names
-                    labelsData={gData}
+                    // Labels - Filter to Top 5 heaviest to avoid clutter
+                    labelsData={labelsData.slice(0, 5)}
                     labelLat="lat"
                     labelLng="lng"
-                    labelText={(d: any) => d.labelText}
-                    labelSize={1.5}
-                    labelDotRadius={0.5}
-                    labelColor={(d: any) => d.type === 'home' ? '#3b82f6' : 'rgba(255, 255, 255, 0.75)'}
+                    labelText="text"
+                    labelSize="size"
+                    labelDotRadius={0.4}
+                    labelColor={() => 'rgba(255, 255, 255, 0.75)'}
                     labelResolution={2}
 
                     backgroundColor="rgba(0,0,0,0)"
@@ -235,9 +316,7 @@ export function GlobeView({ connections }: GlobeViewProps) {
                         powerPreference: "default",
                         antialias: true,
                         alpha: true,
-                        pixelRatio: Math.min(2, window.devicePixelRatio)
                     }}
-                    pointsMerge={false} // Disable merge to ensure labels render
                 />
 
                 {/* Rich Hover Card */}
@@ -286,7 +365,7 @@ export function GlobeView({ connections }: GlobeViewProps) {
                     </div>
                     <div className="bg-slate-900/80 p-3 rounded-lg backdrop-blur border border-slate-700/50">
                         <p className="text-xs text-slate-400">Total Connections</p>
-                        <p className="text-xl font-bold text-sky-400">{connections.length}</p>
+                        <p className="text-xl font-bold text-sky-400">{filteredConnections.length}</p>
                     </div>
                 </div>
             </div>
