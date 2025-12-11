@@ -114,24 +114,46 @@ export function useNetworkData(settings: Settings) {
     const threshold = settings.threshold;
     if (threshold > 0) {
         const now = Date.now();
-        // Simple rate limiting for alerts (e.g., once every 10s)
-        if (!lastAlertAt || now - lastAlertAt > 10000) {
+        // Default to 1 minute if undefined, but allow 0 if explicitly set (though input might restrict it)
+        // If settings.cooldownMinutes is undefined, default to 1.
+        const minutes = settings.cooldownMinutes !== undefined ? settings.cooldownMinutes : 1;
+        const cooldownMs = minutes * 60 * 1000;
+
+        if (!lastAlertAt || now - lastAlertAt > cooldownMs) {
+            let alerted = false;
+
             if (data.rx_sec > threshold) {
                 setAlertIndicator(true);
                 setAlertLog(prev => [{ time: new Date().toLocaleTimeString(), direction: 'rx' as const, rate: formatBytes(data.rx_sec) }, ...prev].slice(0, 50));
-                setLastAlertAt(now);
-                setTimeout(() => setAlertIndicator(false), 2000);
+                if (Notification.permission === 'granted') {
+                    new Notification('High Download Usage', {
+                        body: `Download speed reached ${formatBytes(data.rx_sec)}/s`,
+                        silent: false
+                    });
+                }
+                alerted = true;
             }
+
             if (data.tx_sec > threshold) {
                 setAlertIndicator(true);
                 setAlertLog(prev => [{ time: new Date().toLocaleTimeString(), direction: 'tx' as const, rate: formatBytes(data.tx_sec) }, ...prev].slice(0, 50));
+                if (Notification.permission === 'granted') {
+                    new Notification('High Upload Usage', {
+                        body: `Upload speed reached ${formatBytes(data.tx_sec)}/s`,
+                        silent: false
+                    });
+                }
+                alerted = true;
+            }
+
+            if (alerted) {
                 setLastAlertAt(now);
                 setTimeout(() => setAlertIndicator(false), 2000);
             }
         }
     }
 
-  }, [trafficStats, telemetryPaused, settings.threshold, lastAlertAt]);
+  }, [trafficStats, telemetryPaused, settings.threshold, settings.cooldownMinutes, lastAlertAt]);
 
   // Process Connection List (5s interval from hook)
   // Also calculate Process Usage here since we removed it from Main

@@ -49,14 +49,18 @@ export function SettingsModal({ isOpen, onClose, draft, updateDraft, onSave }: S
                         <div className="flex items-center gap-4">
                             <input
                                 type="range"
-                                min="1"
+                                min="0.08"
                                 max="60"
-                                step="1"
+                                step="0.01"
                                 value={draft.cooldown}
                                 onChange={(e) => { updateDraft('cooldown', Number(e.target.value)) }}
                                 className="flex-1 accent-emerald-500"
                             />
-                            <span className="w-20 text-right text-sm font-mono text-emerald-400">{draft.cooldown} min</span>
+                            <span className="w-24 text-right text-sm font-mono text-emerald-400">
+                                {draft.cooldown < 1
+                                    ? `${Math.round(draft.cooldown * 60)} sec`
+                                    : `${Math.round(draft.cooldown * 10) / 10} min`}
+                            </span>
                         </div>
                         <p className="text-xs text-slate-500">Minimum time between consecutive notifications</p>
                     </div>
@@ -66,14 +70,18 @@ export function SettingsModal({ isOpen, onClose, draft, updateDraft, onSave }: S
                         <div className="flex items-center gap-4">
                             <input
                                 type="range"
-                                min="1"
+                                min="0.08"
                                 max="120"
-                                step="5"
+                                step="0.01"
                                 value={draft.pauseMinutes}
                                 onChange={(e) => { updateDraft('pauseMinutes', Number(e.target.value)) }}
                                 className="flex-1 accent-amber-500"
                             />
-                            <span className="w-20 text-right text-sm font-mono text-amber-400">{draft.pauseMinutes} min</span>
+                            <span className="w-24 text-right text-sm font-mono text-amber-400">
+                                {draft.pauseMinutes < 1
+                                    ? `${Math.round(draft.pauseMinutes * 60)} sec`
+                                    : `${Math.round(draft.pauseMinutes * 10) / 10} min`}
+                            </span>
                         </div>
                         <p className="text-xs text-slate-500">How long to suspend telemetry when paused</p>
                     </div>
