@@ -43,7 +43,7 @@ export function ConnectionTable({ connections }: ConnectionTableProps) {
                             <Lucide.Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={16} />
                             <input
                                 value={search}
-                                onChange={(event) => setSearch(event.target.value)}
+                                onChange={(event) => { setSearch(event.target.value) }}
                                 placeholder="Filter by process or address"
                                 className="w-full rounded-2xl border border-white/10 bg-slate-950/70 py-2 pl-10 pr-4 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:border-sky-500/50"
                             />
@@ -52,10 +52,10 @@ export function ConnectionTable({ connections }: ConnectionTableProps) {
                             {stateFilters.map((filter) => (
                                 <button
                                     key={filter.value}
-                                    onClick={() => setStateFilter(filter.value as 'all' | 'ESTABLISHED' | 'LISTEN')}
+                                    onClick={() => { setStateFilter(filter.value as 'all' | 'ESTABLISHED' | 'LISTEN') }}
                                     className={`rounded-2xl px-4 py-2 text-sm transition-colors ${stateFilter === filter.value
-                                            ? 'bg-white text-slate-900'
-                                            : 'bg-white/10 text-slate-400 hover:bg-white/20'
+                                        ? 'bg-white text-slate-900'
+                                        : 'bg-white/10 text-slate-400 hover:bg-white/20'
                                         }`}
                                 >
                                     {filter.label}
@@ -92,10 +92,10 @@ export function ConnectionTable({ connections }: ConnectionTableProps) {
                                     <td className="px-5 py-4">
                                         <span
                                             className={`rounded-full px-3 py-1 text-xs font-semibold ${conn.state === 'ESTABLISHED'
-                                                    ? 'bg-emerald-400/20 text-emerald-200'
-                                                    : conn.state === 'LISTEN'
-                                                        ? 'bg-sky-400/20 text-sky-100'
-                                                        : 'bg-white/10 text-slate-300'
+                                                ? 'bg-emerald-400/20 text-emerald-200'
+                                                : conn.state === 'LISTEN'
+                                                    ? 'bg-sky-400/20 text-sky-100'
+                                                    : 'bg-white/10 text-slate-300'
                                                 }`}
                                         >
                                             {conn.state}

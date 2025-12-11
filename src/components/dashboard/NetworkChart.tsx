@@ -28,7 +28,7 @@ export function NetworkChart({ history, range, onRangeChange }: NetworkChartProp
                     {rangeOptions.map((option) => (
                         <button
                             key={option.value}
-                            onClick={() => onRangeChange(option.value)}
+                            onClick={() => { onRangeChange(option.value) }}
                             className={`rounded-full px-4 py-1 text-sm transition-colors ${range === option.value
                                 ? 'bg-white text-slate-900'
                                 : 'bg-white/10 text-slate-300 hover:bg-white/20'
@@ -65,22 +65,22 @@ export function NetworkChart({ history, range, onRangeChange }: NetworkChartProp
                             formatter={(value: number) => [`${formatBytes(value)}/s`, 'Speed']}
                             isAnimationActive={false}
                         />
-                        <Area 
-                            type="monotone" 
-                            dataKey="rx" 
-                            stroke="#22c55e" 
-                            fillOpacity={1} 
-                            fill="url(#colorRx)" 
-                            name="Download" 
+                        <Area
+                            type="monotone"
+                            dataKey="rx"
+                            stroke="#22c55e"
+                            fillOpacity={1}
+                            fill="url(#colorRx)"
+                            name="Download"
                             isAnimationActive={false}
                         />
-                        <Area 
-                            type="monotone" 
-                            dataKey="tx" 
-                            stroke="#38bdf8" 
-                            fillOpacity={1} 
-                            fill="url(#colorTx)" 
-                            name="Upload" 
+                        <Area
+                            type="monotone"
+                            dataKey="tx"
+                            stroke="#38bdf8"
+                            fillOpacity={1}
+                            fill="url(#colorTx)"
+                            name="Upload"
                             isAnimationActive={false}
                         />
                     </AreaChart>
