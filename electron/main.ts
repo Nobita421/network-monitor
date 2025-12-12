@@ -1,8 +1,9 @@
-import { app, BrowserWindow, ipcMain } from 'electron'
+import { app, BrowserWindow, ipcMain, Notification } from 'electron'
 import path from 'node:path'
 import * as fs from 'node:fs'
 import si from 'systeminformation'
 import kill from 'tree-kill'
+
 // Configure geoip-lite data directory
 if (app.isPackaged) {
   // In production, use the resources directory
@@ -15,27 +16,134 @@ if (app.isPackaged) {
 const geoip = require('geoip-lite')
 
 // The built directory structure
-//
-// ├─┬─ dist
-// │ ├─ index.html
-// │ ├─ assets
-// │ └─ ...
-// ├─┬─ dist-electron
-// │ ├─ main.js
-// │ └─ preload.js
-//
 process.env.DIST = path.join(__dirname, '../dist')
 process.env.VITE_PUBLIC = app.isPackaged ? process.env.DIST : path.join(__dirname, '../public')
 
 let win: BrowserWindow | null
 let overlayWin: BrowserWindow | null = null
-// 🚧 Use ['ENV_NAME'] avoid vite:define plugin - Vite@2.x
 const VITE_DEV_SERVER_URL = process.env['VITE_DEV_SERVER_URL']
+
+// --- BACKGROUND MONITORING STATE ---
+let monitoringInterval: NodeJS.Timeout | null = null;
+let lastAlertTime = 0;
+let pauseAlertsUntil = 0;
+
+interface AppSettings {
+    threshold: number;      // Bytes per second
+    cooldownMinutes: number;
+    pauseMinutes: number;   // In minutes, but we might receive/store as needed
+}
+
+// Default settings until frontend syncs
+let currentSettings: AppSettings = {
+    threshold: 5 * 1024 * 1024,
+    cooldownMinutes: 5,
+    pauseMinutes: 5
+};
+
+function formatBytes(bytes: number, decimals = 2) {
+    if (bytes === 0) return '0 B';
+    const k = 1024;
+    const dm = decimals < 0 ? 0 : decimals;
+    const sizes = ['B', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+}
+
+function startMonitoring() {
+    if (monitoringInterval) clearInterval(monitoringInterval);
+
+    monitoringInterval = setInterval(async () => {
+        try {
+            const networkStats = await si.networkStats();
+            // Aggregate traffic from all active, non-internal interfaces
+            // Filter out loopbacks or internal only if possible, but stats usually returns external-ish ones.
+            // We want to sum up traffic to catch VPNs + Ethernet etc.
+            
+            let totalRx = 0;
+            let totalTx = 0;
+            let activeIface = '';
+
+            for (const iface of networkStats) {
+                // simple heuristic: if it has traffic, count it.
+                // or check iface.operstate === 'up'
+                if (iface.operstate === 'up' || iface.rx_sec > 0 || iface.tx_sec > 0) {
+                     totalRx += iface.rx_sec;
+                     totalTx += iface.tx_sec;
+                     // Just keep track of one active name for display
+                     if (!activeIface) activeIface = iface.iface;
+                }
+            }
+
+            // Fallback object to send
+            const aggregatedStats = {
+                rx_sec: totalRx,
+                tx_sec: totalTx,
+                iface: activeIface || 'merged',
+                operstate: 'up'
+            };
+
+            // Send to Renderer
+            if (win && !win.isDestroyed()) {
+                win.webContents.send('traffic-update', aggregatedStats);
+            }
+            if (overlayWin && !overlayWin.isDestroyed()) {
+                overlayWin.webContents.send('traffic-update', aggregatedStats);
+            }
+
+            // --- ALERT LOGIC ---
+            const now = Date.now();
+            const isPaused = now < pauseAlertsUntil;
+            
+            if (!isPaused && currentSettings.threshold > 0) {
+                 const cooldownMs = currentSettings.cooldownMinutes * 60 * 1000;
+                 // Check if cooled down
+                 if (now - lastAlertTime > cooldownMs) {
+                      let triggered = false;
+                      let bodyText = '';
+                      let titleText = '';
+
+                      if (totalRx > currentSettings.threshold) {
+                          titleText = 'High Download Traffic';
+                          bodyText = `Download speed: ${formatBytes(totalRx)}/s`;
+                          triggered = true;
+                      } else if (totalTx > currentSettings.threshold) {
+                          titleText = 'High Upload Traffic';
+                          bodyText = `Upload speed: ${formatBytes(totalTx)}/s`;
+                          triggered = true;
+                      }
+
+                      if (triggered) {
+                          new Notification({
+                              title: titleText,
+                              body: bodyText,
+                              silent: false
+                          }).show();
+                          
+                          lastAlertTime = now;
+                          
+                          // Optional: Notify renderer that an alert happened (for logs)
+                          if (win && !win.isDestroyed()) {
+                              win.webContents.send('alert-triggered', {
+                                  title: titleText,
+                                  body: bodyText,
+                                  time: new Date().toISOString()
+                              });
+                          }
+                      }
+                 }
+            }
+
+        } catch (error) {
+            console.error("Monitor loop error:", error);
+        }
+    }, 1000); // 1 Second Heartbeat
+}
 
 function createOverlayWindow() {
   overlayWin = new BrowserWindow({
-    width: 250,
-    height: 120,
+    width: 220,
+    height: 100,
     frame: false,
     transparent: true,
     alwaysOnTop: true,
@@ -48,11 +156,8 @@ function createOverlayWindow() {
     },
   })
 
-  overlayWin.setIgnoreMouseEvents(true, { forward: true })
-
-  // Allow moving the window by holding Shift (implemented in renderer if needed, but for now just click-through)
-  // Actually, to make it draggable we need to toggle ignoreMouseEvents.
-  // For this MVP, let's keep it fixed or simple click-through.
+  // We want to interact with it (drag), so DO NOT ignore mouse events.
+  // overlayWin.setIgnoreMouseEvents(true, { forward: true })
 
   if (VITE_DEV_SERVER_URL) {
     overlayWin.loadURL(`${VITE_DEV_SERVER_URL}#/overlay`)
@@ -74,13 +179,12 @@ function createWindow() {
       preload: path.join(__dirname, 'preload.js'),
       nodeIntegration: false,
       contextIsolation: true,
-      backgroundThrottling: false,
+      backgroundThrottling: false, // Keep this, though Main process loop is better
     },
     title: "NetMonitor Pro",
     autoHideMenuBar: true,
   })
 
-  // Test active push message to Renderer-process.
   win.webContents.on('did-finish-load', () => {
     win?.webContents.send('main-process-message', (new Date).toLocaleString())
   })
@@ -88,14 +192,10 @@ function createWindow() {
   if (VITE_DEV_SERVER_URL) {
     win.loadURL(VITE_DEV_SERVER_URL)
   } else {
-    // win.loadFile('dist/index.html')
     win.loadFile(path.join(process.env.DIST || '', 'index.html'))
   }
 }
 
-// Quit when all windows are closed, except on macOS. There, it's common
-// for applications and their menu bar to stay active until the user quits
-// explicitly with Cmd + Q.
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
     app.quit()
@@ -103,25 +203,54 @@ app.on('window-all-closed', () => {
 })
 
 app.on('activate', () => {
-  // On OS X it's common to re-create a window in the app when the
-  // dock icon is clicked and there are no other windows open.
   if (BrowserWindow.getAllWindows().length === 0) {
     createWindow()
   }
 })
 
+app.on('before-quit', () => {
+    if (monitoringInterval) clearInterval(monitoringInterval);
+})
+
 app.whenReady().then(() => {
   createWindow()
+  startMonitoring(); // Start the heartbeat
 
   // IPC Handlers
+  
+  // Update Settings from Renderer
+  ipcMain.on('update-settings', (_event, settings: AppSettings) => {
+      // Basic validation
+      if (settings) {
+          currentSettings = { ...currentSettings, ...settings };
+          // Console log for debug
+          // console.log('Settings updated in Main:', currentSettings);
+      }
+  });
+
+  // Pause Alerting
+  ipcMain.on('set-paused', (_event, durationMs: number) => {
+      if (durationMs > 0) {
+          pauseAlertsUntil = Date.now() + durationMs;
+          console.log(`Alerts paused for ${durationMs/1000}s`);
+      } else {
+          pauseAlertsUntil = 0; // Resume
+          console.log('Alerts resumed');
+      }
+  });
+
+  // Legacy Handlers (kept if needed by other components, but traffic is pushed now)
   ipcMain.handle('get-traffic-stats', async () => {
+       // We can return the last aggregated stats if we want, or just fetch new.
+       // For consistency, let's fetch new but use the same aggregation logic if possible.
+       // But since we generate events, this might be unused. 
+       // Leaving it as is or slightly improved for compatibility.
     try {
       const networkStats = await si.networkStats();
       const defaultInterface = await si.networkInterfaceDefault();
       const stats = networkStats.find(iface => iface.iface === defaultInterface) || networkStats[0];
       return stats;
     } catch (error) {
-      console.error("Error fetching traffic stats:", error);
       return null;
     }
   });
@@ -135,9 +264,6 @@ app.whenReady().then(() => {
       return [];
     }
   });
-
-  // Deprecated: get-process-usage is too heavy to run frequently.
-  // We will calculate this in the renderer or a worker using the connections list.
   
   ipcMain.handle('kill-process', async (_event, pid: number) => {
     return new Promise((resolve) => {
@@ -158,15 +284,12 @@ app.whenReady().then(() => {
 
   ipcMain.handle('get-ip-locations', async (_event, ips: string[]) => {
     try {
-      // Deduplicate IPs to save processing
       const uniqueIps = [...new Set(ips)];
       const results: Record<string, any> = {};
 
-      // Initialize MaxMind ASN reader if available
       let asnReader: any = null;
       const asnPath = path.join((global as any).geodatadir, 'GeoLite2-ASN.mmdb');
       
-      // LEGAL: Check if file exists before attempting to open
       if (fs.existsSync(asnPath)) {
         try {
             const Reader = require('@maxmind/geoip2-node').Reader;
@@ -174,8 +297,6 @@ app.whenReady().then(() => {
         } catch (e) {
             console.warn('Failed to open ASN Database:', e);
         }
-      } else {
-         // console.debug('ASN Database not found at:', asnPath);
       }
       
       for (const ip of uniqueIps) {
@@ -189,7 +310,7 @@ app.whenReady().then(() => {
                 isp = response.autonomousSystemOrganization || 'Unknown ISP';
                 asn = response.autonomousSystemNumber ? `AS${response.autonomousSystemNumber}` : '';
             } catch (e) {
-                // IP not found in ASN DB
+                // IP not found
             }
         }
 
@@ -214,22 +335,13 @@ app.whenReady().then(() => {
   })
 
   // SECURITY: Validate kill request
-  ipcMain.handle('kill-process', async (_event, pid: number) => {
-    // 1. Basic Int check
+  ipcMain.handle('kill-process-secure', async (_event, pid: number) => {
     if (!Number.isInteger(pid)) return false;
-
-    // 2. SECURITY: PID range check (protect system processes)
-    // Windows PIDs 0, 4 are system. Most restricted system procs are low.
-    // 1000 is a safe conservative lower bound for user applications in this context.
     if (pid < 1000) {
         console.warn(`SECURITY BLOCKED: Attempt to kill low PID ${pid}`);
         return false;
     }
-
     try {
-        // Option 3: Verification against active connections (Optimization for later)
-        // For now, the PID range check + User Initiated Action is a good baseline.
-        
         await new Promise<void>((resolve, reject) => {
             kill(pid, 'SIGKILL', (err) => {
                 if (err) reject(err);

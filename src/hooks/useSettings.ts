@@ -15,6 +15,8 @@ export function useSettings() {
   useEffect(() => {
     if (typeof window === 'undefined') return
     localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(settings))
+    // Sync to Main Process
+    window.ipcRenderer.send('update-settings', settings);
   }, [settings])
 
   useEffect(() => {

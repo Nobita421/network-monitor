@@ -10,6 +10,7 @@ interface HeaderProps {
     history: HistoryPoint[]
     onExport: () => void
     onOpenSettings: () => void
+    onTogglePause: () => void
 }
 
 export function Header({
@@ -19,7 +20,8 @@ export function Header({
     pauseCountdown,
     history,
     onExport,
-    onOpenSettings
+    onOpenSettings,
+    onTogglePause
 }: HeaderProps) {
     return (
         <header className="flex h-20 items-center justify-between border-b border-white/5 bg-slate-950/70 px-6 backdrop-blur">
@@ -34,12 +36,25 @@ export function Header({
                         High usage
                     </span>
                 )}
-                {telemetryPaused && (
-                    <span className="flex items-center gap-2 rounded-full border border-amber-400/40 bg-amber-500/10 px-4 py-2 text-sm text-amber-200">
-                        <Lucide.Pause size={16} />
-                        Paused · {formatCountdown(pauseCountdown)}
-                    </span>
-                )}
+                <button
+                    onClick={onTogglePause}
+                    className={`flex items-center gap-2 rounded-full border px-4 py-2 text-sm transition-colors ${telemetryPaused
+                        ? 'border-amber-400/40 bg-amber-500/10 text-amber-200 hover:bg-amber-500/20'
+                        : 'border-white/5 bg-white/5 text-slate-400 hover:bg-white/10 hover:text-white'
+                        }`}
+                >
+                    {telemetryPaused ? (
+                        <>
+                            <Lucide.Play size={16} />
+                            Resume · {formatCountdown(pauseCountdown)}
+                        </>
+                    ) : (
+                        <>
+                            <Lucide.Pause size={16} />
+                            Pause Alerts
+                        </>
+                    )}
+                </button>
                 <button
                     onClick={() => window.ipcRenderer.toggleOverlay()}
                     className="rounded-full border border-white/5 bg-white/5 p-2 text-slate-400 hover:bg-white/10 hover:text-white transition-colors"

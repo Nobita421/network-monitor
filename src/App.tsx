@@ -93,6 +93,7 @@ function App() {
             history={history}
             onExport={handleExportHistory}
             onOpenSettings={() => setIsModalOpen(true)}
+            onTogglePause={toggleTelemetry}
           />
 
           <div className="flex-1 overflow-hidden relative">

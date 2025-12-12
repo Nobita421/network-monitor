@@ -17593,10 +17593,92 @@ process.env.VITE_PUBLIC = electron.app.isPackaged ? process.env.DIST : path$3.jo
 let win;
 let overlayWin = null;
 const VITE_DEV_SERVER_URL = process.env["VITE_DEV_SERVER_URL"];
+let monitoringInterval = null;
+let lastAlertTime = 0;
+let pauseAlertsUntil = 0;
+let currentSettings = {
+  threshold: 5 * 1024 * 1024,
+  cooldownMinutes: 5,
+  pauseMinutes: 5
+};
+function formatBytes(bytes, decimals = 2) {
+  if (bytes === 0) return "0 B";
+  const k = 1024;
+  const dm = decimals < 0 ? 0 : decimals;
+  const sizes = ["B", "KB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB"];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + " " + sizes[i];
+}
+function startMonitoring() {
+  if (monitoringInterval) clearInterval(monitoringInterval);
+  monitoringInterval = setInterval(async () => {
+    try {
+      const networkStats2 = await si.networkStats();
+      let totalRx = 0;
+      let totalTx = 0;
+      let activeIface = "";
+      for (const iface of networkStats2) {
+        if (iface.operstate === "up" || iface.rx_sec > 0 || iface.tx_sec > 0) {
+          totalRx += iface.rx_sec;
+          totalTx += iface.tx_sec;
+          if (!activeIface) activeIface = iface.iface;
+        }
+      }
+      const aggregatedStats = {
+        rx_sec: totalRx,
+        tx_sec: totalTx,
+        iface: activeIface || "merged",
+        operstate: "up"
+      };
+      if (win && !win.isDestroyed()) {
+        win.webContents.send("traffic-update", aggregatedStats);
+      }
+      if (overlayWin && !overlayWin.isDestroyed()) {
+        overlayWin.webContents.send("traffic-update", aggregatedStats);
+      }
+      const now = Date.now();
+      const isPaused = now < pauseAlertsUntil;
+      if (!isPaused && currentSettings.threshold > 0) {
+        const cooldownMs = currentSettings.cooldownMinutes * 60 * 1e3;
+        if (now - lastAlertTime > cooldownMs) {
+          let triggered = false;
+          let bodyText = "";
+          let titleText = "";
+          if (totalRx > currentSettings.threshold) {
+            titleText = "High Download Traffic";
+            bodyText = `Download speed: ${formatBytes(totalRx)}/s`;
+            triggered = true;
+          } else if (totalTx > currentSettings.threshold) {
+            titleText = "High Upload Traffic";
+            bodyText = `Upload speed: ${formatBytes(totalTx)}/s`;
+            triggered = true;
+          }
+          if (triggered) {
+            new electron.Notification({
+              title: titleText,
+              body: bodyText,
+              silent: false
+            }).show();
+            lastAlertTime = now;
+            if (win && !win.isDestroyed()) {
+              win.webContents.send("alert-triggered", {
+                title: titleText,
+                body: bodyText,
+                time: (/* @__PURE__ */ new Date()).toISOString()
+              });
+            }
+          }
+        }
+      }
+    } catch (error) {
+      console.error("Monitor loop error:", error);
+    }
+  }, 1e3);
+}
 function createOverlayWindow() {
   overlayWin = new electron.BrowserWindow({
-    width: 250,
-    height: 120,
+    width: 220,
+    height: 100,
     frame: false,
     transparent: true,
     alwaysOnTop: true,
@@ -17608,7 +17690,6 @@ function createOverlayWindow() {
       contextIsolation: true
     }
   });
-  overlayWin.setIgnoreMouseEvents(true, { forward: true });
   if (VITE_DEV_SERVER_URL) {
     overlayWin.loadURL(`${VITE_DEV_SERVER_URL}#/overlay`);
   } else {
@@ -17628,6 +17709,7 @@ function createWindow() {
       nodeIntegration: false,
       contextIsolation: true,
       backgroundThrottling: false
+      // Keep this, though Main process loop is better
     },
     title: "NetMonitor Pro",
     autoHideMenuBar: true
@@ -17651,8 +17733,26 @@ electron.app.on("activate", () => {
     createWindow();
   }
 });
+electron.app.on("before-quit", () => {
+  if (monitoringInterval) clearInterval(monitoringInterval);
+});
 electron.app.whenReady().then(() => {
   createWindow();
+  startMonitoring();
+  electron.ipcMain.on("update-settings", (_event, settings) => {
+    if (settings) {
+      currentSettings = { ...currentSettings, ...settings };
+    }
+  });
+  electron.ipcMain.on("set-paused", (_event, durationMs) => {
+    if (durationMs > 0) {
+      pauseAlertsUntil = Date.now() + durationMs;
+      console.log(`Alerts paused for ${durationMs / 1e3}s`);
+    } else {
+      pauseAlertsUntil = 0;
+      console.log("Alerts resumed");
+    }
+  });
   electron.ipcMain.handle("get-traffic-stats", async () => {
     try {
       const networkStats2 = await si.networkStats();
@@ -17660,7 +17760,6 @@ electron.app.whenReady().then(() => {
       const stats = networkStats2.find((iface) => iface.iface === defaultInterface) || networkStats2[0];
       return stats;
     } catch (error) {
-      console.error("Error fetching traffic stats:", error);
       return null;
     }
   });
@@ -17702,7 +17801,6 @@ electron.app.whenReady().then(() => {
         } catch (e) {
           console.warn("Failed to open ASN Database:", e);
         }
-      } else {
       }
       for (const ip of uniqueIps) {
         const geo = geoip.lookup(ip);
@@ -17735,7 +17833,7 @@ electron.app.whenReady().then(() => {
       return {};
     }
   });
-  electron.ipcMain.handle("kill-process", async (_event, pid) => {
+  electron.ipcMain.handle("kill-process-secure", async (_event, pid) => {
     if (!Number.isInteger(pid)) return false;
     if (pid < 1e3) {
       console.warn(`SECURITY BLOCKED: Attempt to kill low PID ${pid}`);

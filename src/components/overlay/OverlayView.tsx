@@ -2,41 +2,68 @@ import { useEffect, useState } from 'react'
 import { NetworkStat } from '../../types'
 import { formatBytes } from '../../lib/utils'
 import { ArrowDown, ArrowUp } from 'lucide-react'
+import React from 'react'
 
 export function OverlayView() {
-    const [stats, setStats] = useState<NetworkStat | null>(null)
+    const [stats, setStats] = useState<NetworkStat>({ rx_sec: 0, tx_sec: 0, iface: '', operstate: 'up' })
 
     useEffect(() => {
-        const fetchStats = async () => {
-            try {
-                const data = await window.ipcRenderer.getNetworkStats()
-                if (data) setStats(data)
-            } catch (error) {
-                console.error('Failed to fetch stats', error)
-            }
+        const handleUpdate = (_event: any, data: NetworkStat) => {
+            setStats(data);
+        };
+
+        // Initial fetch just in case
+        if (window.ipcRenderer) {
+            window.ipcRenderer.getNetworkStats().then(data => {
+                if (data) setStats(data);
+            });
+            // Listen for live updates (0% CPU overhead)
+            window.ipcRenderer.on('traffic-update', handleUpdate);
         }
 
-        fetchStats()
-        const interval = setInterval(fetchStats, 1000)
-        return () => clearInterval(interval)
+        return () => {
+            if (window.ipcRenderer) {
+                window.ipcRenderer.off('traffic-update', handleUpdate);
+            }
+        };
     }, [])
 
-    if (!stats) return null
-
     return (
-        <div className="h-screen w-screen flex items-center justify-center bg-transparent">
-            <div className="flex flex-col gap-1 p-4 rounded-2xl bg-slate-950/80 backdrop-blur-md border border-white/10 shadow-2xl select-none">
-                <div className="flex items-center justify-between gap-4">
-                    <div className="flex items-center gap-2 text-emerald-400">
-                        <ArrowDown size={16} />
-                        <span className="text-lg font-bold font-mono">{formatBytes(stats.rx_sec)}/s</span>
+        <div className="h-screen w-screen flex items-center justify-center bg-transparent overflow-hidden">
+            {/* Draggable Container */}
+            <div
+                className="w-full h-full flex items-center justify-between px-6 bg-slate-950/90 backdrop-blur-md border border-white/5 shadow-2xl select-none"
+                style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
+            >
+                {/* RX */}
+                <div className="flex flex-col items-center gap-1 min-w-[70px]">
+                    <div className="text-emerald-400 flex items-center gap-1 opacity-80">
+                        <ArrowDown size={14} />
+                        <span className="text-[10px] font-bold tracking-wider uppercase">Down</span>
                     </div>
+                    <span className="text-xl font-bold font-mono text-white tracking-tight drop-shadow-[0_0_10px_rgba(52,211,153,0.3)]">
+                        {formatBytes(stats.rx_sec).split(' ')[0]}
+                    </span>
+                    <span className="text-[10px] text-slate-500 font-medium">
+                        {formatBytes(stats.rx_sec).split(' ')[1]}/s
+                    </span>
                 </div>
-                <div className="flex items-center justify-between gap-4">
-                    <div className="flex items-center gap-2 text-sky-400">
-                        <ArrowUp size={16} />
-                        <span className="text-lg font-bold font-mono">{formatBytes(stats.tx_sec)}/s</span>
+
+                {/* Divider */}
+                <div className="h-8 w-px bg-white/10" />
+
+                {/* TX */}
+                <div className="flex flex-col items-center gap-1 min-w-[70px]">
+                    <div className="text-sky-400 flex items-center gap-1 opacity-80">
+                        <ArrowUp size={14} />
+                        <span className="text-[10px] font-bold tracking-wider uppercase">Up</span>
                     </div>
+                    <span className="text-xl font-bold font-mono text-white tracking-tight drop-shadow-[0_0_10px_rgba(56,189,248,0.3)]">
+                        {formatBytes(stats.tx_sec).split(' ')[0]}
+                    </span>
+                    <span className="text-[10px] text-slate-500 font-medium">
+                        {formatBytes(stats.tx_sec).split(' ')[1]}/s
+                    </span>
                 </div>
             </div>
         </div>

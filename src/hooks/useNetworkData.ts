@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { NetworkStat, ProcessUsageEntry, HistoryPoint, Settings } from '../types'
 import { formatBytes, loadStoredNumber } from '../lib/utils'
-import { TELEMETRY_RESUME_KEY, LAST_ALERT_KEY } from '../lib/constants'
+import { TELEMETRY_RESUME_KEY } from '../lib/constants'
 import { db } from '../lib/db'
 import { useTrafficStats } from './useTrafficStats'
 import { useConnectionList } from './useConnectionList'
@@ -33,8 +33,9 @@ export function useNetworkData(settings: Settings) {
     if (!telemetryResumeAt) return 0
     return Math.max(0, Math.ceil((telemetryResumeAt - Date.now()) / 1000))
   })
-  
-  const [lastAlertAt, setLastAlertAt] = useState<number | null>(() => loadStoredNumber(LAST_ALERT_KEY))
+
+  // Normalize settings.pauseMinutes to ensure it's a number (handle string inputs if any)
+  const pauseDurationMinutes = Number(settings.pauseMinutes) > 0 ? Number(settings.pauseMinutes) : 5;
 
   // Persist telemetry resume time
   useEffect(() => {
@@ -46,15 +47,40 @@ export function useNetworkData(settings: Settings) {
     }
   }, [telemetryResumeAt])
 
-  // Persist last alert time
+  // Sync Pause State to Main Process
   useEffect(() => {
-    if (typeof window === 'undefined') return
-    if (lastAlertAt) {
-      localStorage.setItem(LAST_ALERT_KEY, lastAlertAt.toString())
-    } else {
-      localStorage.removeItem(LAST_ALERT_KEY)
-    }
-  }, [lastAlertAt])
+    // Only send if the window/ipc exists
+    if (typeof window === 'undefined' || !window.ipcRenderer) return;
+
+      if (telemetryPaused && telemetryResumeAt) {
+          const remaining = telemetryResumeAt - Date.now();
+          window.ipcRenderer.send('set-paused', remaining);
+      } else {
+          window.ipcRenderer.send('set-paused', 0);
+      }
+  }, [telemetryPaused, telemetryResumeAt]);
+
+  // Listen for Backend Alerts to update UI log
+  useEffect(() => {
+      // Check if ipcRenderer exists (SSR safety)
+      if (typeof window === 'undefined' || !window.ipcRenderer) return;
+
+      const handleAlert = (_event: any, data: { title: string, body: string, time: string }) => {
+          setAlertIndicator(true);
+          const direction = data.title.toLowerCase().includes('download') ? 'rx' : 'tx';
+          // Extract rate from body if possible? body is "Download speed: 1.2 MB/s"
+          const rateMatch = data.body.match(/speed: (.*)/);
+          const rate = rateMatch ? rateMatch[1] : 'High';
+          
+          setAlertLog(prev => [{ time: new Date().toLocaleTimeString(), direction, rate }, ...prev].slice(0, 50));
+          setTimeout(() => setAlertIndicator(false), 2000);
+      };
+
+      window.ipcRenderer.on('alert-triggered', handleAlert);
+      return () => {
+          window.ipcRenderer.off('alert-triggered', handleAlert);
+      };
+  }, []);
 
   // Countdown timer for pause
   useEffect(() => {
@@ -76,13 +102,12 @@ export function useNetworkData(settings: Settings) {
     return () => { clearInterval(interval) }
   }, [telemetryResumeAt])
 
-  // Process Traffic Stats (1s interval from hook)
+  // Process Traffic Stats (Update logs/history/session only)
+  // Logic here assumes trafficStats is updated via the other hook from IPC
   useEffect(() => {
-    if (telemetryPaused || !trafficStats) return;
+    if (!trafficStats) return;
 
     const data = trafficStats;
-    // Map TrafficStats to NetworkStat (if needed, or just use TrafficStats directly)
-    // Assuming NetworkStat has same shape or compatible
     const netStat: NetworkStat = {
         rx_sec: data.rx_sec,
         tx_sec: data.tx_sec,
@@ -93,12 +118,15 @@ export function useNetworkData(settings: Settings) {
     setStats(netStat);
     setElapsedSeconds((prev) => prev + 1);
 
-    // Persist to DB
-    db.traffic_logs.add({
-        timestamp: Date.now(),
-        rx: data.rx_sec,
-        tx: data.tx_sec
-    }).catch(err => { console.error('Failed to persist stats:', err) });
+    // Persist to DB (Only if not paused? Or always logging? User said "Pause Notifications", usually means stop logging alerts, but stats might still flow.
+    // Let's assume stats continue but alerts stop.
+    if (!telemetryPaused) {
+         db.traffic_logs.add({
+            timestamp: Date.now(),
+            rx: data.rx_sec,
+            tx: data.tx_sec
+        }).catch(err => { console.error('Failed to persist stats:', err) });
+    }
 
     setHistory((prev) => {
         const newPoint = { time: new Date().toLocaleTimeString(), rx: data.rx_sec, tx: data.tx_sec };
@@ -110,56 +138,10 @@ export function useNetworkData(settings: Settings) {
     setSessionUsage((prev) => ({ rx: prev.rx + data.rx_sec, tx: prev.tx + data.tx_sec }));
     setMaxSpikes((prev) => ({ rx: Math.max(prev.rx, data.rx_sec), tx: Math.max(prev.tx, data.tx_sec) }));
 
-    // Alert Logic
-    const threshold = settings.threshold;
-    if (threshold > 0) {
-        const now = Date.now();
-        // Default to 1 minute if undefined, but allow 0 if explicitly set (though input might restrict it)
-        // If settings.cooldownMinutes is undefined, default to 1.
-        const minutes = settings.cooldownMinutes !== undefined ? settings.cooldownMinutes : 1;
-        const cooldownMs = minutes * 60 * 1000;
-
-        if (!lastAlertAt || now - lastAlertAt > cooldownMs) {
-            let alerted = false;
-
-            if (data.rx_sec > threshold) {
-                setAlertIndicator(true);
-                setAlertLog(prev => [{ time: new Date().toLocaleTimeString(), direction: 'rx' as const, rate: formatBytes(data.rx_sec) }, ...prev].slice(0, 50));
-                if (Notification.permission === 'granted') {
-                    new Notification('High Download Usage', {
-                        body: `Download speed reached ${formatBytes(data.rx_sec)}/s`,
-                        silent: false
-                    });
-                }
-                alerted = true;
-            }
-
-            if (data.tx_sec > threshold) {
-                setAlertIndicator(true);
-                setAlertLog(prev => [{ time: new Date().toLocaleTimeString(), direction: 'tx' as const, rate: formatBytes(data.tx_sec) }, ...prev].slice(0, 50));
-                if (Notification.permission === 'granted') {
-                    new Notification('High Upload Usage', {
-                        body: `Upload speed reached ${formatBytes(data.tx_sec)}/s`,
-                        silent: false
-                    });
-                }
-                alerted = true;
-            }
-
-            if (alerted) {
-                setLastAlertAt(now);
-                setTimeout(() => setAlertIndicator(false), 2000);
-            }
-        }
-    }
-
-  }, [trafficStats, telemetryPaused, settings.threshold, settings.cooldownMinutes, lastAlertAt]);
+  }, [trafficStats, telemetryPaused]);
 
   // Process Connection List (5s interval from hook)
-  // Also calculate Process Usage here since we removed it from Main
   useEffect(() => {
-      if (telemetryPaused) return;
-      
       // Calculate Process Usage on the client side
       const aggregated = new Map<number, { name: string; pid: number; connections: number; tcp: number; udp: number }>();
       
@@ -179,11 +161,6 @@ export function useNetworkData(settings: Settings) {
 
       const totals = Array.from(aggregated.values());
       const connectionTotal = totals.reduce((sum, entry) => sum + entry.connections, 0) || 1;
-      
-      // We need current traffic stats to distribute bandwidth (approximation)
-      // Since we don't have per-process bandwidth from the OS in this light mode,
-      // we can either skip it or distribute evenly/proportionally based on connection count (inaccurate but visual).
-      // For now, let's just show connection counts which is accurate.
       
       const rxSec = trafficStats?.rx_sec || 0;
       const txSec = trafficStats?.tx_sec || 0;
@@ -207,21 +184,22 @@ export function useNetworkData(settings: Settings) {
 
       setProcessUsage(ranked);
 
-  }, [connectionList, trafficStats, telemetryPaused]);
+  }, [connectionList, trafficStats]);
 
   const toggleTelemetry = useCallback(() => {
     if (telemetryPaused) {
       setTelemetryResumeAt(null)
     } else {
-      // Pause for 5 minutes
-      setTelemetryResumeAt(Date.now() + 5 * 60 * 1000)
+      // Pause for configured minutes (converted to ms)
+      // Fix: Use pauseDurationMinutes explicitly
+      setTelemetryResumeAt(Date.now() + pauseDurationMinutes * 60 * 1000)
     }
-  }, [telemetryPaused])
+  }, [telemetryPaused, pauseDurationMinutes])
 
   return {
     stats,
     history,
-    connections: connectionList, // Return the list from the hook
+    connections: connectionList, 
     processUsage,
     sessionUsage,
     maxSpikes,
