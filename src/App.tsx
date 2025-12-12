@@ -13,14 +13,13 @@ import { HistoryRange } from './types'
 
 function App() {
   const [activeTab, setActiveTab] = useState<'dashboard' | 'connections' | 'map' | 'history'>('dashboard')
-  const [isOverlay, setIsOverlay] = useState(false)
+  const [isOverlay, setIsOverlay] = useState(window.location.hash === '#/overlay' || window.location.hash === '#overlay')
 
   useEffect(() => {
-    if (window.location.hash === '#/overlay') {
-      setIsOverlay(true)
+    if (isOverlay) {
       document.body.style.backgroundColor = 'transparent'
     }
-  }, [])
+  }, [isOverlay])
 
   if (isOverlay) {
     return <OverlayView />

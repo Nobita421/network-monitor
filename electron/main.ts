@@ -24,7 +24,8 @@ let overlayWin: BrowserWindow | null = null
 const VITE_DEV_SERVER_URL = process.env['VITE_DEV_SERVER_URL']
 
 // --- BACKGROUND MONITORING STATE ---
-let monitoringInterval: NodeJS.Timeout | null = null;
+let monitoringTimeout: NodeJS.Timeout | null = null;
+let isMonitoring = false;
 let lastAlertTime = 0;
 let pauseAlertsUntil = 0;
 
@@ -51,11 +52,16 @@ function formatBytes(bytes: number, decimals = 2) {
 }
 
 function startMonitoring() {
-    if (monitoringInterval) clearInterval(monitoringInterval);
+    if (isMonitoring) return;
+    isMonitoring = true;
+    monitorLoop();
+}
 
-    monitoringInterval = setInterval(async () => {
-        try {
-            const networkStats = await si.networkStats();
+async function monitorLoop() {
+    if (!isMonitoring) return;
+
+    try {
+        const networkStats = await si.networkStats();
             // Aggregate traffic from all active, non-internal interfaces
             // Filter out loopbacks or internal only if possible, but stats usually returns external-ish ones.
             // We want to sum up traffic to catch VPNs + Ethernet etc.
@@ -137,8 +143,11 @@ function startMonitoring() {
         } catch (error) {
             console.error("Monitor loop error:", error);
         }
-    }, 1000); // 1 Second Heartbeat
-}
+
+        if (isMonitoring) {
+            monitoringTimeout = setTimeout(monitorLoop, 1000);
+        }
+    }
 
 function createOverlayWindow() {
   overlayWin = new BrowserWindow({
@@ -162,7 +171,7 @@ function createOverlayWindow() {
   if (VITE_DEV_SERVER_URL) {
     overlayWin.loadURL(`${VITE_DEV_SERVER_URL}#/overlay`)
   } else {
-    overlayWin.loadFile(path.join(process.env.DIST || '', 'index.html'), { hash: 'overlay' })
+    overlayWin.loadFile(path.join(process.env.DIST || '', 'index.html'), { hash: '/overlay' })
   }
 
   overlayWin.on('closed', () => {
