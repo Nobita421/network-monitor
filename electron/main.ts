@@ -218,7 +218,7 @@ app.on('activate', () => {
 })
 
 app.on('before-quit', () => {
-    if (monitoringInterval) clearInterval(monitoringInterval);
+    if (monitoringTimeout) clearTimeout(monitoringTimeout);
 })
 
 app.whenReady().then(() => {
