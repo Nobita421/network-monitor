@@ -81,21 +81,21 @@ function configureRuntimeCachePaths() {
 
     const userDataPath = path.join(cacheRoot, 'user-data')
     const sessionDataPath = path.join(cacheRoot, 'session-data')
-    const diskCachePath = path.join(cacheRoot, 'chromium-disk-cache')
 
     const userDataWritable = ensureWritableDirectory(userDataPath)
     const sessionDataWritable = ensureWritableDirectory(sessionDataPath)
-    const diskCacheWritable = ensureWritableDirectory(diskCachePath)
 
-    if (!userDataWritable || !sessionDataWritable || !diskCacheWritable) {
+    if (!userDataWritable || !sessionDataWritable) {
       return
     }
 
     app.setPath('userData', userDataPath)
     app.setPath('sessionData', sessionDataPath)
-    app.commandLine.appendSwitch('disk-cache-dir', diskCachePath)
-    app.commandLine.appendSwitch('disable-http-cache')
-    app.commandLine.appendSwitch('disable-gpu-shader-disk-cache')
+
+    // Avoid stale cache and quota errors in dev without disabling HTTP cache in production.
+    if (!app.isPackaged && process.env.NETMON_DISABLE_HTTP_CACHE !== '0') {
+      app.commandLine.appendSwitch('disable-http-cache')
+    }
   } catch (error) {
     console.warn('Failed to configure runtime cache paths:', error)
   }

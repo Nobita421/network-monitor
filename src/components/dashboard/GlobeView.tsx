@@ -548,7 +548,8 @@ export function GlobeView({ connections }: GlobeViewProps) {
                             </div>
                         ) : (
                             <div className="text-xs text-slate-400 italic">
-                                This device (Localhost) <br /> Source of all outgoing traffic.
+                                Estimated origin (not device GPS) <br />
+                                Computed from observed remote endpoints.
                             </div>
                         )}
                     </div>

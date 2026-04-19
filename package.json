@@ -5,12 +5,15 @@
   "main": "dist-electron/main.js",
   "scripts": {
     "dev": "vite",
-    "build": "tsc && vite build && electron-builder --publish never",
-    "package:dir": "electron-builder --dir --publish never",
+    "build:no-geoip": "tsc && vite build && electron-builder --publish never",
+    "build": "pnpm geoip:update:best-effort && pnpm build:no-geoip",
+    "package:dir": "pnpm geoip:update:best-effort && electron-builder --dir --publish never",
     "test": "node ./scripts/run-vitest.mjs",
     "test:strict": "node ./scripts/run-vitest.mjs --testTimeout=30000 --hookTimeout=30000 --teardownTimeout=30000",
     "typecheck": "tsc --noEmit",
     "lint": "eslint src electron --ext .ts,.tsx",
+    "geoip:update": "node ./scripts/update-geoip-data.mjs --strict",
+    "geoip:update:best-effort": "node ./scripts/update-geoip-data.mjs",
     "preview": "vite preview",
     "preinstall": "npx only-allow pnpm"
   },
