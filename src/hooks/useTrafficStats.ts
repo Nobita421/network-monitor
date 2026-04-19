@@ -1,27 +1,35 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react'
 
 export interface TrafficStats {
-  rx_sec: number;
-  tx_sec: number;
-  iface: string;
-  operstate: string;
+  rx_sec: number
+  tx_sec: number
+  iface: string
+  operstate: string
+  ping?: number
 }
 
 export function useTrafficStats() {
-  const [stats, setStats] = useState<TrafficStats>({ rx_sec: 0, tx_sec: 0, iface: '', operstate: 'unknown' });
+  const [stats, setStats] = useState<TrafficStats | null>(null)
 
   useEffect(() => {
-    // Listen for updates from Main process (pushed every 1s)
-    const handleUpdate = (_event: any, data: TrafficStats) => {
-        setStats(data);
-    };
+    const loadInitialStats = async () => {
+      try {
+        const initialStats = await window.desktop.getTrafficStats()
+        if (initialStats) {
+          setStats(initialStats)
+        }
+      } catch (error) {
+        console.error('Failed to fetch traffic stats:', error)
+      }
+    }
 
-    window.ipcRenderer.on('traffic-update', handleUpdate);
+    void loadInitialStats()
+    const unsubscribe = window.desktop.onTrafficUpdate((nextStats: TrafficStats) => {
+      setStats(nextStats)
+    })
 
-    return () => {
-        window.ipcRenderer.off('traffic-update', handleUpdate);
-    };
-  }, []);
+    return unsubscribe
+  }, [])
 
-  return stats;
+  return stats
 }

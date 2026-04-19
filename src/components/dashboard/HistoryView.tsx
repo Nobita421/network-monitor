@@ -1,14 +1,16 @@
 import { useState, useEffect } from 'react'
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, type TooltipProps } from 'recharts'
+import type { NameType, ValueType } from 'recharts/types/component/DefaultTooltipContent'
 import { Card } from '../ui/Card'
 import { History as HistoryIcon } from 'lucide-react'
-import { db, TrafficLog } from '../../lib/db'
+import { db, type TrafficLog } from '../../lib/db'
+import { getHistorySampleStep, type StoredHistoryRange } from '../../lib/network'
 import { formatBytes } from '../../lib/utils'
 
 export function HistoryView() {
     const [logs, setLogs] = useState<TrafficLog[]>([])
     const [loading, setLoading] = useState(true)
-    const [timeRange, setTimeRange] = useState<'1h' | '24h' | '7d'>('1h')
+    const [timeRange, setTimeRange] = useState<StoredHistoryRange>('1h')
 
     useEffect(() => {
         const fetchHistory = async () => {
@@ -23,15 +25,21 @@ export function HistoryView() {
                     case '7d': startTime = now - 7 * 24 * 60 * 60 * 1000; break;
                 }
 
-                const data = await db.traffic_logs
+                const sampleEvery = getHistorySampleStep(timeRange)
+                const sampledLogs: TrafficLog[] = []
+                let index = 0
+
+                await db.traffic_logs
                     .where('timestamp')
-                    .above(startTime)
-                    .toArray()
+                    .aboveOrEqual(startTime)
+                    .each((log) => {
+                        if (index % sampleEvery === 0) {
+                            sampledLogs.push(log)
+                        }
+                        index += 1
+                    })
 
-                // Downsample if too many points (simple approach)
-                const downsampled = data.filter((_, i) => i % (timeRange === '1h' ? 1 : timeRange === '24h' ? 60 : 300) === 0)
-
-                setLogs(downsampled)
+                setLogs(sampledLogs)
             } catch (error) {
                 console.error('Failed to fetch history:', error)
             } finally {
@@ -39,11 +47,28 @@ export function HistoryView() {
             }
         }
 
-        fetchHistory()
+        void fetchHistory()
     }, [timeRange])
 
     const formatXAxis = (tick: number) => {
         return new Date(tick).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    }
+
+    const formatTooltipLabel = (label: string | number) => {
+        if (typeof label === 'number' || typeof label === 'string') {
+            return new Date(label).toLocaleString()
+        }
+
+        return ''
+    }
+
+    const formatTooltipValue: TooltipProps<ValueType, NameType>['formatter'] = (value) => {
+        if (typeof value === 'number') {
+            return [formatBytes(value), '']
+        }
+
+        const numericValue = Number(value)
+        return [formatBytes(Number.isFinite(numericValue) ? numericValue : 0), '']
     }
 
     return (
@@ -97,7 +122,7 @@ export function HistoryView() {
                                 axisLine={false}
                             />
                             <YAxis
-                                tickFormatter={(val) => formatBytes(val)}
+                                tickFormatter={(val) => formatBytes(Number(val))}
                                 stroke="#94a3b8"
                                 fontSize={12}
                                 tickLine={false}
@@ -106,8 +131,8 @@ export function HistoryView() {
                             <Tooltip
                                 contentStyle={{ backgroundColor: '#0f172a', borderColor: '#1e293b', borderRadius: '12px' }}
                                 itemStyle={{ color: '#e2e8f0' }}
-                                labelFormatter={(label) => new Date(label).toLocaleString()}
-                                formatter={(value: number) => [formatBytes(value), '']}
+                                labelFormatter={formatTooltipLabel}
+                                formatter={formatTooltipValue}
                             />
                             <Area
                                 type="monotone"

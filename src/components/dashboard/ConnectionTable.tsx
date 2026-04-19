@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Connection } from '../../types'
+import type { Connection } from '../../types'
 import { stateFilters } from '../../lib/constants'
 import { Card } from '../ui/Card'
 import * as Lucide from 'lucide-react'
@@ -8,9 +8,12 @@ interface ConnectionTableProps {
     connections: Connection[]
 }
 
+const PAGE_SIZE = 200
+
 export function ConnectionTable({ connections }: ConnectionTableProps) {
     const [search, setSearch] = useState('')
     const [stateFilter, setStateFilter] = useState<'all' | 'ESTABLISHED' | 'LISTEN'>('all')
+    const [page, setPage] = useState(1)
 
     const filteredConnections = useMemo(() => {
         const query = search.trim().toLowerCase()
@@ -18,12 +21,24 @@ export function ConnectionTable({ connections }: ConnectionTableProps) {
             const matchesQuery =
                 !query ||
                 conn.process?.toLowerCase().includes(query) ||
-                conn.localAddress.toLowerCase().includes(query) ||
-                conn.peerAddress.toLowerCase().includes(query)
+                (conn.localAddress || '').toLowerCase().includes(query) ||
+                (conn.peerAddress || '').toLowerCase().includes(query)
             const matchesState = stateFilter === 'all' || conn.state === stateFilter
             return matchesQuery && matchesState
         })
     }, [connections, search, stateFilter])
+
+    const totalPages = Math.max(1, Math.ceil(filteredConnections.length / PAGE_SIZE))
+    const currentPage = Math.min(page, totalPages)
+
+    const pagedConnections = useMemo(() => {
+        const start = (currentPage - 1) * PAGE_SIZE
+        return filteredConnections.slice(start, start + PAGE_SIZE)
+    }, [filteredConnections, currentPage])
+
+    const resetToFirstPage = () => {
+        setPage(1)
+    }
 
     return (
         <div className="space-y-6">
@@ -43,7 +58,10 @@ export function ConnectionTable({ connections }: ConnectionTableProps) {
                             <Lucide.Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={16} />
                             <input
                                 value={search}
-                                onChange={(event) => { setSearch(event.target.value) }}
+                                onChange={(event) => {
+                                    setSearch(event.target.value)
+                                    resetToFirstPage()
+                                }}
                                 placeholder="Filter by process or address"
                                 className="w-full rounded-2xl border border-white/10 bg-slate-950/70 py-2 pl-10 pr-4 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:border-sky-500/50"
                             />
@@ -52,7 +70,10 @@ export function ConnectionTable({ connections }: ConnectionTableProps) {
                             {stateFilters.map((filter) => (
                                 <button
                                     key={filter.value}
-                                    onClick={() => { setStateFilter(filter.value as 'all' | 'ESTABLISHED' | 'LISTEN') }}
+                                    onClick={() => {
+                                        setStateFilter(filter.value as 'all' | 'ESTABLISHED' | 'LISTEN')
+                                        resetToFirstPage()
+                                    }}
                                     className={`rounded-2xl px-4 py-2 text-sm transition-colors ${stateFilter === filter.value
                                         ? 'bg-white text-slate-900'
                                         : 'bg-white/10 text-slate-400 hover:bg-white/20'
@@ -79,8 +100,8 @@ export function ConnectionTable({ connections }: ConnectionTableProps) {
                             </tr>
                         </thead>
                         <tbody>
-                            {filteredConnections.map((conn, index) => (
-                                <tr key={`${conn.localAddress}-${conn.localPort}-${index}`} className="border-t border-white/5 text-sm hover:bg-white/5 transition-colors">
+                            {pagedConnections.map((conn) => (
+                                <tr key={`${conn.pid}-${conn.protocol}-${conn.localAddress}-${conn.localPort}-${conn.peerAddress}-${conn.peerPort}`} className="border-t border-white/5 text-sm hover:bg-white/5 transition-colors">
                                     <td className="px-5 py-4 font-medium text-white">{conn.process || 'System'}</td>
                                     <td className="px-5 py-4">{conn.protocol.toUpperCase()}</td>
                                     <td className="px-5 py-4 text-slate-300">
@@ -103,7 +124,7 @@ export function ConnectionTable({ connections }: ConnectionTableProps) {
                                     </td>
                                 </tr>
                             ))}
-                            {filteredConnections.length === 0 && (
+                            {pagedConnections.length === 0 && (
                                 <tr>
                                     <td colSpan={5} className="px-5 py-8 text-center text-slate-400">
                                         No connections match the current filters.
@@ -113,6 +134,30 @@ export function ConnectionTable({ connections }: ConnectionTableProps) {
                         </tbody>
                     </table>
                 </div>
+                {totalPages > 1 && (
+                    <div className="flex items-center justify-between border-t border-white/5 px-5 py-3 text-xs text-slate-400">
+                        <span>
+                            Showing {(currentPage - 1) * PAGE_SIZE + 1}-{Math.min(currentPage * PAGE_SIZE, filteredConnections.length)} of {filteredConnections.length}
+                        </span>
+                        <div className="flex items-center gap-2">
+                            <button
+                                onClick={() => setPage((current) => Math.max(1, current - 1))}
+                                disabled={currentPage === 1}
+                                className="rounded-full border border-white/10 px-3 py-1 disabled:cursor-not-allowed disabled:opacity-40"
+                            >
+                                Prev
+                            </button>
+                            <span>Page {currentPage} / {totalPages}</span>
+                            <button
+                                onClick={() => setPage((current) => Math.min(totalPages, current + 1))}
+                                disabled={currentPage === totalPages}
+                                className="rounded-full border border-white/10 px-3 py-1 disabled:cursor-not-allowed disabled:opacity-40"
+                            >
+                                Next
+                            </button>
+                        </div>
+                    </div>
+                )}
             </div>
         </div>
     )

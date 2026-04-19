@@ -3,6 +3,7 @@ export interface NetworkStat {
   tx_sec: number
   iface: string
   operstate: string
+  ping?: number
 }
 
 export interface Connection {
@@ -25,6 +26,12 @@ export interface ProcessUsageEntry {
   activityScore: number
   tcp: number
   udp: number
+}
+
+export interface AlertLogEntry {
+  time: string
+  direction: 'rx' | 'tx'
+  rate: string
 }
 
 export type HistoryPoint = { time: string; rx: number; tx: number }

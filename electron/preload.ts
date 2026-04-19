@@ -1,29 +1,34 @@
 import { ipcRenderer, contextBridge } from 'electron'
+import { IPC_CHANNELS, type AlertPayload, type DesktopApi, type OverlayMode } from '../src/lib/ipc'
+import type { Connection, NetworkStat, Settings } from '../src/types'
 
-// --------- Expose some API to the Renderer process ---------
-contextBridge.exposeInMainWorld('ipcRenderer', {
-  on(...args: Parameters<typeof ipcRenderer.on>) {
-    const [channel, listener] = args
-    return ipcRenderer.on(channel, (event, ...args) => listener(event, ...args))
-  },
-  off(...args: Parameters<typeof ipcRenderer.off>) {
-    const [channel, ...omit] = args
-    return ipcRenderer.off(channel, ...omit)
-  },
-  send(...args: Parameters<typeof ipcRenderer.send>) {
-    const [channel, ...omit] = args
-    return ipcRenderer.send(channel, ...omit)
-  },
-  invoke(...args: Parameters<typeof ipcRenderer.invoke>) {
-    const [channel, ...omit] = args
-    return ipcRenderer.invoke(channel, ...omit)
-  },
+function subscribe<T>(channel: string, listener: (payload: T) => void) {
+  const wrappedListener = (_event: Electron.IpcRendererEvent, payload: T) => {
+    listener(payload)
+  }
 
-  // Specific APIs
-  getTrafficStats: () => ipcRenderer.invoke('get-traffic-stats'),
-  getNetworkConnections: () => ipcRenderer.invoke('get-network-connections'),
-  // getProcessUsage is deprecated, logic moved to renderer
-  killProcess: (pid: number) => ipcRenderer.invoke('kill-process', pid),
-  getIpLocations: (ips: string[]) => ipcRenderer.invoke('get-ip-locations', ips),
-  toggleOverlay: () => ipcRenderer.invoke('toggle-overlay'),
-})
+  ipcRenderer.on(channel, wrappedListener)
+  return () => {
+    ipcRenderer.off(channel, wrappedListener)
+  }
+}
+
+const desktopApi: DesktopApi = {
+  getIpLocations: (ips: string[]) => ipcRenderer.invoke(IPC_CHANNELS.getIpLocations, ips),
+  getNetworkConnections: () => ipcRenderer.invoke(IPC_CHANNELS.getNetworkConnections) as Promise<Connection[]>,
+  getTrafficStats: () => ipcRenderer.invoke(IPC_CHANNELS.getTrafficStats) as Promise<NetworkStat | null>,
+  killProcess: (pid: number) => ipcRenderer.invoke(IPC_CHANNELS.killProcess, pid),
+  onAlertTriggered: (listener: (payload: AlertPayload) => void) => subscribe(IPC_CHANNELS.alertTriggered, listener),
+  onConnectionsUpdate: (listener: (connections: Connection[]) => void) => subscribe(IPC_CHANNELS.connectionsUpdate, listener),
+  onTrafficUpdate: (listener: (stats: NetworkStat) => void) => subscribe(IPC_CHANNELS.trafficUpdate, listener),
+  setOverlayMode: (mode: OverlayMode) => ipcRenderer.invoke(IPC_CHANNELS.setOverlayMode, mode),
+  setTelemetryPaused: (durationMs: number) => {
+    ipcRenderer.send(IPC_CHANNELS.setTelemetryPaused, durationMs)
+  },
+  toggleOverlay: () => ipcRenderer.invoke(IPC_CHANNELS.toggleOverlay),
+  updateSettings: (settings: Settings) => {
+    ipcRenderer.send(IPC_CHANNELS.updateSettings, settings)
+  },
+}
+
+contextBridge.exposeInMainWorld('desktop', desktopApi)

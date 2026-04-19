@@ -3,6 +3,10 @@ import { defaultSettings, SETTINGS_STORAGE_KEY } from './constants'
 import { clsx, type ClassValue } from 'clsx'
 import { twMerge } from 'tailwind-merge'
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null
+}
+
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
@@ -12,12 +16,13 @@ export const loadSettings = (): Settings => {
   try {
     const stored = localStorage.getItem(SETTINGS_STORAGE_KEY)
     if (!stored) return defaultSettings
-    const parsed = JSON.parse(stored)
+    const parsed: unknown = JSON.parse(stored)
+    const parsedSettings = isRecord(parsed) ? parsed : {}
     return {
       ...defaultSettings,
-      threshold: Number(parsed.threshold) || defaultSettings.threshold,
-      cooldownMinutes: Number(parsed.cooldownMinutes) || defaultSettings.cooldownMinutes,
-      pauseMinutes: Number(parsed.pauseMinutes) || defaultSettings.pauseMinutes,
+      threshold: Number(parsedSettings.threshold) || defaultSettings.threshold,
+      cooldownMinutes: Number(parsedSettings.cooldownMinutes) || defaultSettings.cooldownMinutes,
+      pauseMinutes: Number(parsedSettings.pauseMinutes) || defaultSettings.pauseMinutes,
     }
   } catch (error) {
     console.warn('Failed to parse settings, falling back to defaults.', error)

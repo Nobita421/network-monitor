@@ -12,20 +12,20 @@ A modern Windows desktop application to monitor network activity, built with Ele
 
 ### Prerequisites
 *   Node.js (v16 or higher)
-*   npm (v8 or higher)
+*   pnpm
 
 ### Installation
 
 1.  Install dependencies:
     ```bash
-    npm install
+    pnpm install
     ```
 
 ### Running the App
 
 1.  Start the development server:
     ```bash
-    npm run dev
+    pnpm dev
     ```
     This will launch the Electron application with Hot Module Replacement (HMR) enabled.
 
@@ -34,10 +34,10 @@ A modern Windows desktop application to monitor network activity, built with Ele
 To create a Windows executable (.exe):
 
 ```bash
-npm run build
+pnpm build
 ```
 
-The output will be in the `dist` or `release` folder.
+The packaged Windows artifacts will be written to the `release/` folder.
 
 ## Tech Stack
 *   **Electron**: Desktop runtime.

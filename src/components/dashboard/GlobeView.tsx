@@ -1,10 +1,9 @@
 import { useMemo, useState, useEffect, memo, useRef, useCallback } from 'react'
 import Globe, { GlobeMethods } from 'react-globe.gl'
-import * as THREE from 'three'
 import { Globe as GlobeIcon, Activity, ExternalLink, Zap } from 'lucide-react'
 import { Card } from '../ui/Card'
 import { Drawer } from '../ui/Drawer'
-import { Connection } from '../../types'
+import type { Connection } from '../../types'
 import { useGeoLocation } from '../../hooks/useGeoLocation'
 
 interface GlobeViewProps {
@@ -24,6 +23,67 @@ interface GlobePoint {
     asn?: string;
     connCount: number;
     connections?: Connection[]; // For Drawer
+}
+
+interface GlobeHexPoint {
+    lat: number;
+    lng: number;
+    weight: number;
+    city?: string;
+    country?: string;
+    isp?: string;
+    asn?: string;
+    topProcess?: string;
+    connections?: Connection[];
+}
+
+interface GlobeHexBin {
+    points: GlobeHexPoint[];
+    sumWeight: number;
+}
+
+interface GlobeRing {
+    lat: number;
+    lng: number;
+    maxR: number;
+    propagationSpeed: number;
+    repeatPeriod: number;
+    color: string;
+}
+
+interface GlobeArc {
+    startLat: number;
+    startLng: number;
+    endLat: number;
+    endLng: number;
+    color: [string, string];
+    dashLength: number;
+    dashGap: number;
+    animateTime: number;
+}
+
+function isGlobeHexBin(value: unknown): value is GlobeHexBin {
+    if (typeof value !== 'object' || value === null) {
+        return false
+    }
+
+    const candidate = value as Partial<GlobeHexBin>
+    return Array.isArray(candidate.points) && typeof candidate.sumWeight === 'number'
+}
+
+function toFiniteNumber(value: unknown): number | null {
+    if (typeof value === 'number' && Number.isFinite(value)) {
+        return value
+    }
+
+    if (typeof value === 'string' && value.trim().length > 0) {
+        const parsed = Number(value)
+        if (Number.isFinite(parsed)) {
+            return parsed
+        }
+    }
+
+    return null
 }
 
 // Memoize the Globe component to prevent re-renders when parent updates but props are same
@@ -95,11 +155,17 @@ export function GlobeView({ connections }: GlobeViewProps) {
             const geo = ipToGeo.get(conn.peerAddress);
             if (!geo) return;
 
-            const key = `${geo.lat.toFixed(4)},${geo.lon.toFixed(4)}`;
+            const lat = toFiniteNumber(geo.lat)
+            const lon = toFiniteNumber(geo.lon)
+            if (lat === null || lon === null) {
+                return
+            }
+
+            const key = `${lat.toFixed(4)},${lon.toFixed(4)}`;
             if (!locMap.has(key)) {
                 locMap.set(key, {
-                    lat: geo.lat,
-                    lon: geo.lon,
+                    lat,
+                    lon,
                     city: geo.city,
                     country: geo.country,
                     isp: geo.isp || 'Unknown ISP',
@@ -144,14 +210,14 @@ export function GlobeView({ connections }: GlobeViewProps) {
     // Rings Data (Security / Threats)
     // Mock logic: Flag IPs from specific "suspicious" countries or random check for demo
     // Feature 4: Interactive Pulse (Rings on Data Update)
-    const [rings, setRings] = useState<any[]>([]);
+    const [rings, setRings] = useState<GlobeRing[]>([]);
     const prevLocationsRef = useRef<Map<string, number>>(new Map());
 
     useEffect(() => {
         // Optimization: Debounce ring updates to prevent thrashing during high network activity
         const handler = setTimeout(() => {
             // Diff current locations with previous to find "new" or "increased" activity
-            const newRings: any[] = [];
+            const newRings: GlobeRing[] = [];
             const currentMap = new Map<string, number>();
 
             uniqueLocations.forEach(loc => {
@@ -196,30 +262,28 @@ export function GlobeView({ connections }: GlobeViewProps) {
 
     const ringsData = rings;
 
-    // Arcs for Data Travel Direction & Volume
-    const arcsData = useMemo(() => {
-        if (!myLocation) return [];
+    const arcsData = useMemo<GlobeArc[]>(() => {
+        if (!myLocation) {
+            return []
+        }
 
-        // Flatten connections to Arcs? Or Group by Location?
-        // Grouping by location is better for performance.
-        return uniqueLocations.map(loc => {
-            // Heuristic for bandwidth/speed (mock since we don't have per-conn bytes yet)
-            // Use connection count as a proxy for "activity volume" for now
-            const isHeavy = loc.totalConns > 5;
-            const isUpload = Math.random() > 0.7; // Mock direction (needs real data in V2.1)
+        return uniqueLocations.map((loc) => {
+            const isHeavy = loc.totalConns > 5
+            const seed = Math.abs(Math.round(loc.lat * 1000) + Math.round(loc.lon * 1000) + loc.totalConns)
+            const isUpload = seed % 3 === 0
 
             return {
                 startLat: isUpload ? myLocation.lat : loc.lat,
                 startLng: isUpload ? myLocation.lon : loc.lon,
                 endLat: isUpload ? loc.lat : myLocation.lat,
                 endLng: isUpload ? loc.lon : myLocation.lon,
-                color: isUpload ? ['#f59e0b', '#ef4444'] : ['#10b981', '#3b82f6'], // Orange->Red (Up), Green->Blue (Down)
-                dashLength: isHeavy ? 0.6 : 0.2, // Longer dash for heavy traffic
-                dashGap: isHeavy ? 0.2 : 0.4,
-                animateTime: isHeavy ? 1000 : 3000, // Faster for heavy
-            };
-        });
-    }, [uniqueLocations, myLocation]);
+                color: isUpload ? ['#f59e0b', '#ef4444'] : ['#10b981', '#3b82f6'],
+                dashLength: isHeavy ? 0.55 : 0.25,
+                dashGap: isHeavy ? 0.2 : 0.35,
+                animateTime: isHeavy ? 1200 : 2600,
+            }
+        })
+    }, [myLocation, uniqueLocations])
 
     // Labels for Hexes (Top Process)
     const labelsData = useMemo(() => {
@@ -235,14 +299,27 @@ export function GlobeView({ connections }: GlobeViewProps) {
         });
     }, [uniqueLocations]);
 
-    const handleHexClick = useCallback((hex: any) => {
-        if (!hex || !globeRef.current) return;
+    const handleHexClick = useCallback((hex: unknown) => {
+        if (!isGlobeHexBin(hex) || !globeRef.current || hex.points.length === 0) {
+            return
+        }
 
-        // Fly to location
-        // Find center of hex points
-        const points = hex.points;
-        const centerLat = points.reduce((sum: number, p: any) => sum + p.lat, 0) / points.length;
-        const centerLng = points.reduce((sum: number, p: any) => sum + p.lng, 0) / points.length;
+        const normalizedPoints = hex.points
+            .map((point) => ({
+                lat: toFiniteNumber(point.lat),
+                lng: toFiniteNumber(point.lng),
+                point,
+            }))
+            .filter((entry): entry is { lat: number; lng: number; point: GlobeHexPoint } => {
+                return entry.lat !== null && entry.lng !== null
+            })
+
+        if (normalizedPoints.length === 0) {
+            return
+        }
+
+        const centerLat = normalizedPoints.reduce((sum, point) => sum + point.lat, 0) / normalizedPoints.length
+        const centerLng = normalizedPoints.reduce((sum, point) => sum + point.lng, 0) / normalizedPoints.length
 
         globeRef.current.pointOfView({
             lat: centerLat,
@@ -250,13 +327,9 @@ export function GlobeView({ connections }: GlobeViewProps) {
             altitude: 1.5
         }, 1500);
 
-        // Prepare data for Drawer
-        // Merge all connections from all points in this hex
-        const allConnections = points.flatMap((p: any) => p.connections || []);
-
-        // Pick representative metadata (e.g. from the heaviest point)
-        const sortedPoints = points.sort((a: any, b: any) => b.weight - a.weight);
-        const mainPoint = sortedPoints[0];
+        const allConnections = normalizedPoints.flatMap((point) => point.point.connections || [])
+        const sortedPoints = [...normalizedPoints].sort((a, b) => b.point.weight - a.point.weight)
+        const mainPoint = sortedPoints[0].point
 
         setSelectedHex({
             lat: centerLat,
@@ -266,7 +339,7 @@ export function GlobeView({ connections }: GlobeViewProps) {
             isp: mainPoint.isp,
             asn: mainPoint.asn,
             connCount: hex.sumWeight,
-            labelText: mainPoint.topProcess,
+            labelText: mainPoint.topProcess || 'Unknown',
             type: 'remote',
             size: 0,
             color: '',
@@ -277,15 +350,10 @@ export function GlobeView({ connections }: GlobeViewProps) {
 
     const handleKillProcess = useCallback(async (pid?: number) => {
         if (!pid) return;
-        // Confirm?
-        // For "Power User" tool, maybe just do it or show simple toast.
-        // We'll just invoke.
         try {
-            const success = await (window as any).ipcRenderer.invoke('kill-process', pid);
+            const success = await window.desktop.killProcess(pid);
             if (success) {
                 console.log(`Killed process ${pid}`);
-                // Optimistically remove from UI? 
-                // Real data update will handle it shortly.
             } else {
                 console.error(`Failed to kill ${pid}`);
             }
@@ -358,26 +426,39 @@ export function GlobeView({ connections }: GlobeViewProps) {
                     hexSideColor={() => '#064e3b'} // Dark Emerald Side
                     hexBinMerge={true}
                     onHexClick={handleHexClick}
-                    onHexHover={(bin: any) => {
-                        if (!bin) {
+                    onHexHover={(bin: unknown) => {
+                        if (!isGlobeHexBin(bin) || bin.points.length === 0) {
                             setHoveredPoint(null);
                             return;
                         }
-                        // bin.points contains the array of original data objects in this hex
-                        // Optimize: Find the heaviest point in the bin to show its Top Process
-                        const sortedPoints = bin.points.sort((a: any, b: any) => b.weight - a.weight);
-                        const mainPoint = sortedPoints[0];
+
+                        const normalizedPoints = bin.points
+                            .map((point) => ({
+                                lat: toFiniteNumber(point.lat),
+                                lng: toFiniteNumber(point.lng),
+                                point,
+                            }))
+                            .filter((entry): entry is { lat: number; lng: number; point: GlobeHexPoint } => {
+                                return entry.lat !== null && entry.lng !== null
+                            })
+
+                        if (normalizedPoints.length === 0) {
+                            setHoveredPoint(null)
+                            return
+                        }
+
+                        const sortedPoints = [...normalizedPoints].sort((a, b) => b.point.weight - a.point.weight)
+                        const mainPoint = sortedPoints[0].point
                         const totalConns = bin.sumWeight;
                         const topProc = mainPoint.topProcess || 'Unknown';
                         const isp = mainPoint.isp || 'Unknown ISP';
 
-                        // Count unique processes across all points in bin (approximation for Speed)
-                        const mergedCount = bin.points.length;
+                        const mergedCount = normalizedPoints.length;
                         const extraCount = mergedCount > 1 ? ` +${mergedCount - 1} locs` : '';
 
                         setHoveredPoint({
-                            lat: mainPoint.lat,
-                            lng: mainPoint.lng,
+                            lat: sortedPoints[0].lat,
+                            lng: sortedPoints[0].lng,
                             city: mainPoint.city,
                             country: mainPoint.country,
                             isp: isp,
@@ -397,10 +478,6 @@ export function GlobeView({ connections }: GlobeViewProps) {
                     ringPropagationSpeed="propagationSpeed"
                     ringRepeatPeriod="repeatPeriod"
 
-                    // Atmosphere
-                    atmosphereColor="#3b82f6"
-                    atmosphereAltitude={0.15}
-
                     // Arcs - Traffic Flow
                     arcsData={arcsData}
                     arcColor="color"
@@ -408,6 +485,10 @@ export function GlobeView({ connections }: GlobeViewProps) {
                     arcDashGap="dashGap"
                     arcDashAnimateTime="animateTime"
                     arcStroke={0.5}
+
+                    // Atmosphere
+                    atmosphereColor="#3b82f6"
+                    atmosphereAltitude={0.15}
 
                     // Labels - Filter to Top 5 heaviest to avoid clutter
                     labelsData={labelsData.slice(0, 5)}
@@ -442,7 +523,7 @@ export function GlobeView({ connections }: GlobeViewProps) {
                                 <div>
                                     <div className="text-xs text-slate-400 uppercase tracking-wider font-semibold">Top Process</div>
                                     <div className="text-sm font-bold text-emerald-400 font-mono break-all">
-                                        {hoveredPoint.labelText.replace(/ \+\d+$/, '')}
+                                        {hoveredPoint.labelText.replace(/ \+\d+ locs$/, '')}
                                     </div>
                                 </div>
                                 <div className="grid grid-cols-2 gap-2 pt-1 border-t border-slate-700/50">
@@ -525,7 +606,9 @@ export function GlobeView({ connections }: GlobeViewProps) {
                                             </div>
                                             <button
                                                 className="text-xs bg-red-500/10 text-red-400 px-2 py-1 rounded hover:bg-red-500 hover:text-white transition-all opacity-0 group-hover:opacity-100 flex items-center gap-1"
-                                                onClick={() => handleKillProcess(conn.pid)}
+                                                onClick={() => {
+                                                    void handleKillProcess(conn.pid)
+                                                }}
                                                 title="Kill Process"
                                             >
                                                 <Zap size={10} /> KILL

@@ -2,7 +2,7 @@ import { HistoryRange, Settings } from '../types'
 
 export const SETTINGS_STORAGE_KEY = 'netmonitor:settings'
 export const TELEMETRY_RESUME_KEY = 'netmonitor:telemetry-resume'
-export const LAST_ALERT_KEY = 'netmonitor:last-alert'
+export const HISTORY_RETENTION_MS = 7 * 24 * 60 * 60 * 1000
 
 export const defaultSettings: Settings = {
   threshold: 5 * 1024 * 1024,

@@ -1,143 +1,162 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
+import { isPrivateOrLocalIp } from '../lib/network'
+import type { IpLocation } from '../lib/ipc'
 
-interface GeoLocation {
-  lat: number
-  lon: number
-  country: string
-  city: string
+interface GeoLocation extends IpLocation {
   ip: string
-  isp?: string
-  asn?: string
 }
 
-// Global cache to persist across component unmounts/remounts
-const GLOBAL_IP_CACHE = new Map<string, GeoLocation | null>();
+interface CachedGeoEntry {
+  location: GeoLocation | null
+  expiresAt: number
+}
+
+const POSITIVE_CACHE_TTL_MS = 24 * 60 * 60 * 1000
+const NEGATIVE_CACHE_TTL_MS = 5 * 60 * 1000
+
+const GLOBAL_IP_CACHE = new Map<string, CachedGeoEntry>()
 
 export function useGeoLocation(ips: string[]) {
-  // Initialize state with whatever is already in the global cache
   const [locations, setLocations] = useState<Map<string, GeoLocation>>(() => {
-    const initialMap = new Map<string, GeoLocation>();
-    GLOBAL_IP_CACHE.forEach((val, key) => {
-      if (val) initialMap.set(key, val);
-    });
-    return initialMap;
-  });
+    const now = Date.now()
+    const initialMap = new Map<string, GeoLocation>()
+    GLOBAL_IP_CACHE.forEach((entry, key) => {
+      if (entry.expiresAt <= now) {
+        GLOBAL_IP_CACHE.delete(key)
+        return
+      }
 
-  // Keep track of which IPs we are currently fetching to avoid duplicate requests
-  const pendingRequests = useRef<Set<string>>(new Set());
+      if (entry.location) {
+        initialMap.set(key, entry.location)
+      }
+    })
+    return initialMap
+  })
+
+  const pendingRequests = useRef<Set<string>>(new Set())
 
   useEffect(() => {
-    const resolveIps = async () => {
-      const ipsToFetch: string[] = [];
+    const now = Date.now()
+    const requestedIps = ips.filter((ip) => !isPrivateOrLocalIp(ip))
 
-      // Identify IPs that are not in cache and not currently being fetched
-      for (const ip of ips) {
-        if (
-          ip === '127.0.0.1' || 
-          ip === '::1' || 
-          ip.startsWith('192.168.') || 
-          ip.startsWith('10.') ||
-          ip.startsWith('172.16.') || // Docker/Private
-          ip.startsWith('172.17.') ||
-          ip.startsWith('172.18.') ||
-          ip.startsWith('172.19.') ||
-          ip.startsWith('172.2') ||
-          ip.startsWith('172.30.') ||
-          ip.startsWith('172.31.')
-        ) {
-          continue;
+    setLocations((prev) => {
+      const next = new Map(prev)
+      let changed = false
+
+      for (const ip of requestedIps) {
+        const cachedEntry = GLOBAL_IP_CACHE.get(ip)
+        if (!cachedEntry) {
+          continue
         }
 
-        if (!GLOBAL_IP_CACHE.has(ip) && !pendingRequests.current.has(ip)) {
-          ipsToFetch.push(ip);
-          pendingRequests.current.add(ip);
+        if (cachedEntry.expiresAt <= now) {
+          GLOBAL_IP_CACHE.delete(ip)
+          if (next.delete(ip)) {
+            changed = true
+          }
+          continue
+        }
+
+        if (cachedEntry.location && !next.has(ip)) {
+          next.set(ip, cachedEntry.location)
+          changed = true
         }
       }
 
-      if (ipsToFetch.length === 0) return;
+      return changed ? next : prev
+    })
+
+    const resolveIps = async () => {
+      const ipsToFetch: string[] = []
+      const scanNow = Date.now()
+
+      for (const ip of ips) {
+        if (isPrivateOrLocalIp(ip)) {
+          continue
+        }
+
+        const cachedEntry = GLOBAL_IP_CACHE.get(ip)
+        const isCacheFresh = Boolean(cachedEntry && cachedEntry.expiresAt > scanNow)
+
+        if (!isCacheFresh) {
+          GLOBAL_IP_CACHE.delete(ip)
+        }
+
+        if (!isCacheFresh && !pendingRequests.current.has(ip)) {
+          ipsToFetch.push(ip)
+          pendingRequests.current.add(ip)
+        }
+      }
+
+      if (ipsToFetch.length === 0) return
 
       try {
-        // Batch request to Main process
-        const results = await window.ipcRenderer.getIpLocations(ipsToFetch);
-        
-        let hasNewValidLocations = false;
-        const newLocationsMap = new Map(locations);
+        const results = await window.desktop.getIpLocations(ipsToFetch)
+        const cacheNow = Date.now()
 
-        Object.entries(results).forEach(([ip, loc]) => {
-          if (loc) {
-            const geoLoc = { ...loc, ip };
-            GLOBAL_IP_CACHE.set(ip, geoLoc);
-            newLocationsMap.set(ip, geoLoc);
-            hasNewValidLocations = true;
-          } else {
-            // Mark as null in cache so we don't retry
-            GLOBAL_IP_CACHE.set(ip, null);
-          }
-          pendingRequests.current.delete(ip);
-        });
+        setLocations((prev) => {
+          const next = new Map(prev)
+          let changed = false
 
-        if (hasNewValidLocations) {
-          setLocations(newLocationsMap);
-        }
+          Object.entries(results).forEach(([ip, loc]) => {
+            if (loc) {
+              const geoLoc: GeoLocation = { ...loc, ip }
+              GLOBAL_IP_CACHE.set(ip, {
+                location: geoLoc,
+                expiresAt: cacheNow + POSITIVE_CACHE_TTL_MS,
+              })
+              next.set(ip, geoLoc)
+              changed = true
+            } else {
+              GLOBAL_IP_CACHE.set(ip, {
+                location: null,
+                expiresAt: cacheNow + NEGATIVE_CACHE_TTL_MS,
+              })
+            }
+
+            pendingRequests.current.delete(ip)
+          })
+
+          return changed ? next : prev
+        })
       } catch (error) {
-        console.error(`Failed to resolve IPs`, error);
-        // Clear pending status on error so we might retry later
-        ipsToFetch.forEach(ip => pendingRequests.current.delete(ip));
+        console.error('Failed to resolve IPs', error)
+        ipsToFetch.forEach((ip) => pendingRequests.current.delete(ip))
       }
-    };
+    }
 
     if (ips.length > 0) {
-      // Debounce slightly to allow array to settle if it's changing rapidly
-      const timer = setTimeout(resolveIps, 500);
-      return () => clearTimeout(timer);
+      const timer = setTimeout(() => {
+        void resolveIps()
+      }, 500)
+      return () => clearTimeout(timer)
     }
-  }, [ips, locations]);
+  }, [ips])
 
-  const [myLocation, setMyLocation] = useState<GeoLocation | null>(null);
+  const locationList = useMemo(() => Array.from(locations.values()), [locations])
 
-  useEffect(() => {
-      // Fetch user's "Home" location for the globe center/arc origin
-      const fetchMyLocation = async () => {
-          try {
-              // Try browser geolocation first for accuracy
-              /* navigator.geolocation.getCurrentPosition(
-                  (pos) => {
-                      setMyLocation({
-                          lat: pos.coords.latitude,
-                          lon: pos.coords.longitude,
-                          country: 'Local',
-                          city: 'My Location',
-                          ip: '127.0.0.1'
-                      });
-                  },
-                  async () => { */
-                      // Fallback to IP-based if geolocation fails/blocked (or just default for now to avoid permission prompts)
-                      // SImulate or use a quick fetch if needed. For now, let's use a known public API *client-side* only if user allows.
-                      // Actually, for a desktop app, we can guess based on the first "external" request or just default to 0,0 
-                      // or better: let the user set it? 
-                      // Let's try a simple fetch to a free geo-ip service (robustness: fail gracefully)
-                      const res = await fetch('https://ipapi.co/json/');
-                      if (res.ok) {
-                          const data = await res.json();
-                          setMyLocation({
-                              lat: data.latitude,
-                              lon: data.longitude,
-                              country: data.country_name,
-                              city: data.city,
-                              ip: data.ip
-                          });
-                      }
-                 /* }
-              ); */
-          } catch (e) {
-              console.warn("Could not determine local location", e);
-          }
-      };
+  const myLocation = useMemo<GeoLocation | null>(() => {
+    if (locationList.length === 0) {
+      return null
+    }
 
-      fetchMyLocation();
-  }, []);
+    const averaged = locationList.reduce(
+      (accumulator, location) => {
+        accumulator.lat += location.lat
+        accumulator.lon += location.lon
+        return accumulator
+      },
+      { lat: 0, lon: 0 },
+    )
 
-  const locationList = useMemo(() => Array.from(locations.values()), [locations]);
+    return {
+      lat: averaged.lat / locationList.length,
+      lon: averaged.lon / locationList.length,
+      city: 'Approximate Origin',
+      country: 'Local Estimate',
+      ip: 'self',
+    }
+  }, [locationList])
 
   return { locations: locationList, myLocation }
 }

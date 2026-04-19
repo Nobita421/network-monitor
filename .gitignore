@@ -20,6 +20,10 @@ node_modules/
 
 # Build directories
 build/
+dist/
+dist-renderer/
+dist-electron/
+release/
 Dist/
 Dist/**
 out/
@@ -65,7 +69,8 @@ public/static/
 
 # Misc generated files
 *.pid
-
-
+.opencode/
+.antigravity/
+opencode.jsonc
 #Ignore vscode AI rules
-.github\instructions\codacy.instructions.md
+.github/instructions/codacy.instructions.md

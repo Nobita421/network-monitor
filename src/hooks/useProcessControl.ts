@@ -6,7 +6,7 @@ export function useProcessControl() {
   const killProcess = useCallback(async (pid: number) => {
     setIsKilling(pid)
     try {
-      const success = await window.ipcRenderer.killProcess(pid)
+      const success = await window.desktop.killProcess(pid)
       return success
     } catch (error) {
       console.error('Failed to kill process:', error)

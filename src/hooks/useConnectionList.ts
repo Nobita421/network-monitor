@@ -1,29 +1,28 @@
-import { useState, useEffect } from 'react';
-import { Connection } from '../types';
+import { useEffect, useState } from 'react'
+import type { Connection } from '../types'
 
 export function useConnectionList() {
-  const [connections, setConnections] = useState<Connection[]>([]);
+  const [connections, setConnections] = useState<Connection[]>([])
 
   useEffect(() => {
-    const fetchConnections = async () => {
+    const loadConnections = async () => {
       try {
-        const data = await window.ipcRenderer.getNetworkConnections();
+        const data = await window.desktop.getNetworkConnections()
         if (Array.isArray(data)) {
-          setConnections(data);
+          setConnections(data)
         }
       } catch (error) {
-        console.error("Failed to fetch connections:", error);
+        console.error('Failed to fetch connections:', error)
       }
-    };
+    }
 
-    // Initial fetch
-    void fetchConnections();
+    void loadConnections()
+    const unsubscribe = window.desktop.onConnectionsUpdate((nextConnections: Connection[]) => {
+      setConnections(nextConnections)
+    })
 
-    // Poll every 5 seconds (Low Frequency)
-    const interval = setInterval(fetchConnections, 5000);
+    return unsubscribe
+  }, [])
 
-    return () => { clearInterval(interval); }
-  }, []);
-
-  return connections;
+  return connections
 }

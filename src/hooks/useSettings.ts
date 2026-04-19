@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Settings } from '../types'
+import type { Settings } from '../types'
 import { defaultSettings, SETTINGS_STORAGE_KEY } from '../lib/constants'
 import { loadSettings } from '../lib/utils'
 
@@ -15,8 +15,7 @@ export function useSettings() {
   useEffect(() => {
     if (typeof window === 'undefined') return
     localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(settings))
-    // Sync to Main Process
-    window.ipcRenderer.send('update-settings', settings);
+    window.desktop.updateSettings(settings)
   }, [settings])
 
   useEffect(() => {

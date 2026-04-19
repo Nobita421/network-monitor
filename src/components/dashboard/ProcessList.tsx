@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Activity, Trash2 } from 'lucide-react'
-import { ProcessUsageEntry } from '../../types'
+import type { ProcessUsageEntry } from '../../types'
 import { formatBytes, cn } from '../../lib/utils'
 import { Card } from '../ui/Card'
 import { ConfirmationModal } from '../ui/ConfirmationModal'
@@ -84,7 +84,9 @@ export function ProcessList({ processes }: ProcessListProps) {
             <ConfirmationModal
                 isOpen={!!processToKill}
                 onClose={() => setProcessToKill(null)}
-                onConfirm={handleKillConfirm}
+                onConfirm={() => {
+                    void handleKillConfirm()
+                }}
                 title="Kill Process?"
                 message={`Are you sure you want to terminate "${processToKill?.name}" (PID: ${processToKill?.pid})? This action cannot be undone and might cause data loss if the application has unsaved work.`}
                 confirmLabel={isKilling === processToKill?.pid ? 'Killing...' : 'Kill Process'}
