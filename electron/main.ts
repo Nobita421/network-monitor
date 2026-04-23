@@ -3,6 +3,7 @@ import { Reader, type ReaderModel } from '@maxmind/geoip2-node'
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'
 import * as fs from 'node:fs'
+import { isIP } from 'node:net'
 import si from 'systeminformation'
 import kill from 'tree-kill'
 import { IPC_CHANNELS, type IpLocation, type OverlayMode } from '../src/lib/ipc'
@@ -36,6 +37,9 @@ const CONNECTION_POLL_INTERVAL_MS = 5000
 const PING_POLL_INTERVAL_MS = 5000
 const PING_REQUEST_TIMEOUT_MS = 2000
 const MIN_KILLABLE_PID = 1000
+const MAX_TELEMETRY_PAUSE_DURATION_MS = 24 * 60 * 60 * 1000
+const MAX_IP_LOOKUP_BATCH_SIZE = 500
+const MAX_IP_LOOKUP_HANDLER_DURATION_MS = 1500
 const RUNTIME_CACHE_DIR_NAME = 'netmonitor-runtime-cache'
 
 let win: BrowserWindow | null = null
@@ -501,7 +505,17 @@ void app.whenReady().then(() => {
     }
 
     const numericDurationMs = Number(durationMs)
-    pauseTelemetryUntil = numericDurationMs > 0 ? Date.now() + numericDurationMs : 0
+    if (!Number.isFinite(numericDurationMs)) {
+      pauseTelemetryUntil = 0
+      return
+    }
+
+    const clampedDurationMs = Math.min(
+      Math.max(0, Math.trunc(numericDurationMs)),
+      MAX_TELEMETRY_PAUSE_DURATION_MS,
+    )
+
+    pauseTelemetryUntil = clampedDurationMs > 0 ? Date.now() + clampedDurationMs : 0
   })
 
   ipcMain.handle(IPC_CHANNELS.getTrafficStats, (event) => {
@@ -548,19 +562,38 @@ void app.whenReady().then(() => {
     }
 
     try {
-      const uniqueIps = [...new Set(ips.filter((ip): ip is string => typeof ip === 'string' && ip.trim().length > 0))]
+      const requestedIps = Array.isArray(ips) ? ips : []
+      const uniqueIps = [
+        ...new Set(
+          requestedIps
+            .filter((ip): ip is string => typeof ip === 'string' && ip.trim().length > 0)
+            .map((ip) => ip.trim()),
+        ),
+      ]
+      const cappedIps = uniqueIps.slice(0, MAX_IP_LOOKUP_BATCH_SIZE)
       const results: Record<string, IpLocation | null> = {}
+      const lookupDeadline = Date.now() + MAX_IP_LOOKUP_HANDLER_DURATION_MS
+
+      for (const ip of uniqueIps.slice(MAX_IP_LOOKUP_BATCH_SIZE)) {
+        results[ip] = null
+      }
+
       const [asnReader, geoip] = await Promise.all([loadAsnReader(), loadGeoIpModule()])
 
       if (!geoip) {
-        for (const ip of uniqueIps) {
+        for (const ip of cappedIps) {
           results[ip] = null
         }
 
         return results
       }
 
-      for (const ip of uniqueIps) {
+      for (const ip of cappedIps) {
+        if (Date.now() > lookupDeadline || isIP(ip) === 0) {
+          results[ip] = null
+          continue
+        }
+
         const geo = geoip.lookup(ip)
         if (!geo) {
           results[ip] = null

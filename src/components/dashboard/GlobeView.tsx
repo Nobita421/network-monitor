@@ -2,6 +2,7 @@ import { useMemo, useState, useEffect, memo, useRef, useCallback } from 'react'
 import Globe, { GlobeMethods } from 'react-globe.gl'
 import { Globe as GlobeIcon, Activity, ExternalLink, Zap } from 'lucide-react'
 import { Card } from '../ui/Card'
+import { ConfirmationModal } from '../ui/ConfirmationModal'
 import { Drawer } from '../ui/Drawer'
 import type { Connection } from '../../types'
 import { useGeoLocation } from '../../hooks/useGeoLocation'
@@ -98,6 +99,7 @@ export function GlobeView({ connections }: GlobeViewProps) {
     const [hoveredPoint, setHoveredPoint] = useState<GlobePoint | null>(null);
     const [selectedHex, setSelectedHex] = useState<GlobePoint | null>(null); // For Drawer
     const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+    const [processToKill, setProcessToKill] = useState<{ pid: number; name: string } | null>(null)
 
     const [filterProcess, setFilterProcess] = useState('');
 
@@ -362,6 +364,17 @@ export function GlobeView({ connections }: GlobeViewProps) {
         }
     }, []);
 
+    const requestKillProcess = useCallback((connection: Connection) => {
+        if (!Number.isInteger(connection.pid) || !connection.pid || connection.pid <= 0) {
+            return
+        }
+
+        setProcessToKill({
+            pid: connection.pid,
+            name: connection.process || 'System',
+        })
+    }, [])
+
     useEffect(() => {
         const handleResize = () => {
             const container = document.getElementById('globe-container')
@@ -608,8 +621,9 @@ export function GlobeView({ connections }: GlobeViewProps) {
                                             <button
                                                 className="text-xs bg-red-500/10 text-red-400 px-2 py-1 rounded hover:bg-red-500 hover:text-white transition-all opacity-0 group-hover:opacity-100 flex items-center gap-1"
                                                 onClick={() => {
-                                                    void handleKillProcess(conn.pid)
+                                                    requestKillProcess(conn)
                                                 }}
+                                                disabled={!Number.isInteger(conn.pid) || !conn.pid || conn.pid <= 0}
                                                 title="Kill Process"
                                             >
                                                 <Zap size={10} /> KILL
@@ -631,6 +645,19 @@ export function GlobeView({ connections }: GlobeViewProps) {
                     </div>
                 )}
             </Drawer>
+            <ConfirmationModal
+                isOpen={Boolean(processToKill)}
+                onClose={() => {
+                    setProcessToKill(null)
+                }}
+                onConfirm={() => {
+                    void handleKillProcess(processToKill?.pid)
+                }}
+                title="Kill Process?"
+                message={`Are you sure you want to terminate "${processToKill?.name}" (PID: ${processToKill?.pid})? This action cannot be undone and might cause data loss if the application has unsaved work.`}
+                confirmLabel="Kill Process"
+                isDanger={true}
+            />
         </Card >
     )
 }
