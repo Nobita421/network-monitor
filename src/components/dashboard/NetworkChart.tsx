@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { memo, useMemo } from 'react'
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import { HistoryPoint, HistoryRange } from '../../types'
 import { formatBytes } from '../../lib/utils'
@@ -11,7 +11,7 @@ interface NetworkChartProps {
     onRangeChange: (range: HistoryRange) => void
 }
 
-export function NetworkChart({ history, range, onRangeChange }: NetworkChartProps) {
+export const NetworkChart = memo(function NetworkChart({ history, range, onRangeChange }: NetworkChartProps) {
     const displayedHistory = useMemo(() => {
         const limit = chartWindow[range]
         return history.slice(-limit)
@@ -29,10 +29,11 @@ export function NetworkChart({ history, range, onRangeChange }: NetworkChartProp
                         <button
                             key={option.value}
                             onClick={() => { onRangeChange(option.value) }}
-                            className={`rounded-full px-4 py-1 text-sm transition-colors ${range === option.value
-                                ? 'bg-white text-slate-900'
-                                : 'bg-white/10 text-slate-300 hover:bg-white/20'
-                                }`}
+                            className={`rounded-full px-4 py-1 text-sm transition-colors ${
+                                range === option.value
+                                    ? 'bg-white text-slate-900'
+                                    : 'bg-white/10 text-slate-300 hover:bg-white/20'
+                            }`}
                         >
                             {option.label}
                         </button>
@@ -88,4 +89,4 @@ export function NetworkChart({ history, range, onRangeChange }: NetworkChartProp
             </div>
         </Card>
     )
-}
+})

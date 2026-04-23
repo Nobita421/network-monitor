@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { memo, useMemo, useState } from 'react'
 import type { Connection } from '../../types'
 import { stateFilters } from '../../lib/constants'
 import { Card } from '../ui/Card'
@@ -8,9 +8,9 @@ interface ConnectionTableProps {
     connections: Connection[]
 }
 
-const PAGE_SIZE = 200
+const PAGE_SIZE = 100
 
-export function ConnectionTable({ connections }: ConnectionTableProps) {
+export const ConnectionTable = memo(function ConnectionTable({ connections }: ConnectionTableProps) {
     const [search, setSearch] = useState('')
     const [stateFilter, setStateFilter] = useState<'all' | 'ESTABLISHED' | 'LISTEN'>('all')
     const [page, setPage] = useState(1)
@@ -36,9 +36,7 @@ export function ConnectionTable({ connections }: ConnectionTableProps) {
         return filteredConnections.slice(start, start + PAGE_SIZE)
     }, [filteredConnections, currentPage])
 
-    const resetToFirstPage = () => {
-        setPage(1)
-    }
+    const resetToFirstPage = () => { setPage(1) }
 
     return (
         <div className="space-y-6">
@@ -74,10 +72,11 @@ export function ConnectionTable({ connections }: ConnectionTableProps) {
                                         setStateFilter(filter.value as 'all' | 'ESTABLISHED' | 'LISTEN')
                                         resetToFirstPage()
                                     }}
-                                    className={`rounded-2xl px-4 py-2 text-sm transition-colors ${stateFilter === filter.value
-                                        ? 'bg-white text-slate-900'
-                                        : 'bg-white/10 text-slate-400 hover:bg-white/20'
-                                        }`}
+                                    className={`rounded-2xl px-4 py-2 text-sm transition-colors ${
+                                        stateFilter === filter.value
+                                            ? 'bg-white text-slate-900'
+                                            : 'bg-white/10 text-slate-400 hover:bg-white/20'
+                                    }`}
                                 >
                                     {filter.label}
                                 </button>
@@ -101,23 +100,23 @@ export function ConnectionTable({ connections }: ConnectionTableProps) {
                         </thead>
                         <tbody>
                             {pagedConnections.map((conn) => (
-                                <tr key={`${conn.pid}-${conn.protocol}-${conn.localAddress}-${conn.localPort}-${conn.peerAddress}-${conn.peerPort}`} className="border-t border-white/5 text-sm hover:bg-white/5 transition-colors">
+                                <tr
+                                    key={`${conn.pid}-${conn.protocol}-${conn.localAddress}-${conn.localPort}-${conn.peerAddress}-${conn.peerPort}`}
+                                    className="border-t border-white/5 text-sm hover:bg-white/5 transition-colors"
+                                >
                                     <td className="px-5 py-4 font-medium text-white">{conn.process || 'System'}</td>
                                     <td className="px-5 py-4">{conn.protocol.toUpperCase()}</td>
-                                    <td className="px-5 py-4 text-slate-300">
-                                        {conn.localAddress}:{conn.localPort}
-                                    </td>
-                                    <td className="px-5 py-4 text-slate-300">
-                                        {conn.peerAddress}:{conn.peerPort}
-                                    </td>
+                                    <td className="px-5 py-4 text-slate-300">{conn.localAddress}:{conn.localPort}</td>
+                                    <td className="px-5 py-4 text-slate-300">{conn.peerAddress}:{conn.peerPort}</td>
                                     <td className="px-5 py-4">
                                         <span
-                                            className={`rounded-full px-3 py-1 text-xs font-semibold ${conn.state === 'ESTABLISHED'
-                                                ? 'bg-emerald-400/20 text-emerald-200'
-                                                : conn.state === 'LISTEN'
-                                                    ? 'bg-sky-400/20 text-sky-100'
-                                                    : 'bg-white/10 text-slate-300'
-                                                }`}
+                                            className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                                                conn.state === 'ESTABLISHED'
+                                                    ? 'bg-emerald-400/20 text-emerald-200'
+                                                    : conn.state === 'LISTEN'
+                                                        ? 'bg-sky-400/20 text-sky-100'
+                                                        : 'bg-white/10 text-slate-300'
+                                            }`}
                                         >
                                             {conn.state}
                                         </span>
@@ -137,11 +136,11 @@ export function ConnectionTable({ connections }: ConnectionTableProps) {
                 {totalPages > 1 && (
                     <div className="flex items-center justify-between border-t border-white/5 px-5 py-3 text-xs text-slate-400">
                         <span>
-                            Showing {(currentPage - 1) * PAGE_SIZE + 1}-{Math.min(currentPage * PAGE_SIZE, filteredConnections.length)} of {filteredConnections.length}
+                            Showing {(currentPage - 1) * PAGE_SIZE + 1}–{Math.min(currentPage * PAGE_SIZE, filteredConnections.length)} of {filteredConnections.length}
                         </span>
                         <div className="flex items-center gap-2">
                             <button
-                                onClick={() => setPage((current) => Math.max(1, current - 1))}
+                                onClick={() => setPage((c) => Math.max(1, c - 1))}
                                 disabled={currentPage === 1}
                                 className="rounded-full border border-white/10 px-3 py-1 disabled:cursor-not-allowed disabled:opacity-40"
                             >
@@ -149,7 +148,7 @@ export function ConnectionTable({ connections }: ConnectionTableProps) {
                             </button>
                             <span>Page {currentPage} / {totalPages}</span>
                             <button
-                                onClick={() => setPage((current) => Math.min(totalPages, current + 1))}
+                                onClick={() => setPage((c) => Math.min(totalPages, c + 1))}
                                 disabled={currentPage === totalPages}
                                 className="rounded-full border border-white/10 px-3 py-1 disabled:cursor-not-allowed disabled:opacity-40"
                             >
@@ -161,4 +160,4 @@ export function ConnectionTable({ connections }: ConnectionTableProps) {
             </div>
         </div>
     )
-}
+})

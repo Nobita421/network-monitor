@@ -32,8 +32,11 @@ process.env.DIST = path.join(__dirname, '../dist-renderer')
 process.env.VITE_PUBLIC = app.isPackaged ? process.env.DIST : path.join(__dirname, '../public')
 
 const VITE_DEV_SERVER_URL = process.env.VITE_DEV_SERVER_URL
-const NETWORK_POLL_INTERVAL_MS = 1000
-const CONNECTION_POLL_INTERVAL_MS = 5000
+
+// --- Polling intervals ---
+// Reduced to lower systeminformation CPU pressure
+const NETWORK_POLL_INTERVAL_MS = 2000
+const CONNECTION_POLL_INTERVAL_MS = 6000
 const PING_POLL_INTERVAL_MS = 5000
 const PING_REQUEST_TIMEOUT_MS = 2000
 const MIN_KILLABLE_PID = 1000
@@ -49,6 +52,7 @@ let connectionMonitoringTimeout: NodeJS.Timeout | null = null
 let pingMonitoringTimeout: NodeJS.Timeout | null = null
 let lastAlertTime = 0
 let pauseTelemetryUntil = 0
+let appVisible = true  // track whether the app window is visible
 const trustedWebContentsIds = new Set<number>()
 let lastTrafficStats: NetworkStat = {
   rx_sec: 0,
@@ -89,14 +93,11 @@ function configureRuntimeCachePaths() {
     const userDataWritable = ensureWritableDirectory(userDataPath)
     const sessionDataWritable = ensureWritableDirectory(sessionDataPath)
 
-    if (!userDataWritable || !sessionDataWritable) {
-      return
-    }
+    if (!userDataWritable || !sessionDataWritable) return
 
     app.setPath('userData', userDataPath)
     app.setPath('sessionData', sessionDataPath)
 
-    // Avoid stale cache and quota errors in dev without disabling HTTP cache in production.
     if (!app.isPackaged && process.env.NETMON_DISABLE_HTTP_CACHE !== '0') {
       app.commandLine.appendSwitch('disable-http-cache')
     }
@@ -108,15 +109,11 @@ function configureRuntimeCachePaths() {
 configureRuntimeCachePaths()
 
 function formatBytes(bytes: number, decimals = 2) {
-  if (bytes === 0) {
-    return '0 B'
-  }
-
+  if (bytes === 0) return '0 B'
   const k = 1024
   const dm = decimals < 0 ? 0 : decimals
   const sizes = ['B', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB']
   const i = Math.floor(Math.log(bytes) / Math.log(k))
-
   return `${parseFloat((bytes / Math.pow(k, i)).toFixed(dm))} ${sizes[i]}`
 }
 
@@ -134,38 +131,24 @@ function broadcast<T>(channel: string, payload: T) {
 
 function getExpectedRendererPathname() {
   const distDir = process.env.DIST
-  if (!distDir) {
-    return null
-  }
-
+  if (!distDir) return null
   return pathToFileURL(path.join(distDir, 'index.html')).pathname
 }
 
 function isTrustedSender(event: TrustedEvent) {
   const senderFrame = event.senderFrame
-  if (!senderFrame || senderFrame !== event.sender.mainFrame) {
-    return false
-  }
-
-  if (!trustedWebContentsIds.has(event.sender.id)) {
-    return false
-  }
+  if (!senderFrame || senderFrame !== event.sender.mainFrame) return false
+  if (!trustedWebContentsIds.has(event.sender.id)) return false
 
   const senderUrl = senderFrame.url
-  if (!senderUrl) {
-    return false
-  }
+  if (!senderUrl) return false
 
   try {
     if (VITE_DEV_SERVER_URL) {
       return new URL(senderUrl).origin === new URL(VITE_DEV_SERVER_URL).origin
     }
-
     const parsedSenderUrl = new URL(senderUrl)
-    if (parsedSenderUrl.protocol !== 'file:') {
-      return false
-    }
-
+    if (parsedSenderUrl.protocol !== 'file:') return false
     const expectedPathname = getExpectedRendererPathname()
     return Boolean(expectedPathname && parsedSenderUrl.pathname === expectedPathname)
   } catch {
@@ -174,10 +157,7 @@ function isTrustedSender(event: TrustedEvent) {
 }
 
 function rejectUntrustedSender(event: TrustedEvent, channel: string) {
-  if (isTrustedSender(event)) {
-    return false
-  }
-
+  if (isTrustedSender(event)) return false
   console.warn(`[SECURITY] Blocked IPC channel "${channel}" from sender ${event.senderFrame?.url ?? 'unknown'}`)
   return true
 }
@@ -186,7 +166,6 @@ function sanitizeSettings(settings: Partial<Settings>): Settings {
   const threshold = Number(settings.threshold)
   const cooldownMinutes = Number(settings.cooldownMinutes)
   const pauseMinutes = Number(settings.pauseMinutes)
-
   return {
     threshold: Number.isFinite(threshold) ? Math.max(0.5 * 1024 * 1024, threshold) : currentSettings.threshold,
     cooldownMinutes: Number.isFinite(cooldownMinutes) ? Math.max(5 / 60, cooldownMinutes) : currentSettings.cooldownMinutes,
@@ -200,72 +179,49 @@ function getOptionalAsnDbPath() {
     path.join(process.cwd(), 'resources', 'GeoLite2-ASN.mmdb'),
     app.isPackaged ? path.join(process.resourcesPath, 'GeoLite2-ASN.mmdb') : null,
   ].filter((candidate): candidate is string => Boolean(candidate))
-
   return candidates.find((candidate) => fs.existsSync(candidate)) ?? null
 }
 
 async function loadAsnReader() {
-  if (asnReaderPromise) {
-    return asnReaderPromise
-  }
-
+  if (asnReaderPromise) return asnReaderPromise
   const asnDbPath = getOptionalAsnDbPath()
   if (!asnDbPath) {
     asnReaderPromise = Promise.resolve(null)
     return asnReaderPromise
   }
-
   asnReaderPromise = Reader.open(asnDbPath).catch((error) => {
     console.warn('Failed to open ASN database:', error)
     return null
   })
-
   return asnReaderPromise
 }
 
 async function loadGeoIpModule() {
-  if (geoIpModulePromise) {
-    return geoIpModulePromise
-  }
-
+  if (geoIpModulePromise) return geoIpModulePromise
   geoIpModulePromise = import('geoip-lite')
     .then((module) => {
       const candidate = ((module as { default?: unknown }).default ?? module) as Partial<GeoIpModule>
-
-      if (typeof candidate.lookup !== 'function') {
-        throw new Error('geoip-lite did not expose lookup()')
-      }
-
+      if (typeof candidate.lookup !== 'function') throw new Error('geoip-lite did not expose lookup()')
       return candidate as GeoIpModule
     })
     .catch((error) => {
       console.error('Failed to initialize geoip-lite:', error)
       return null
     })
-
   return geoIpModulePromise
 }
 
 function canKillProcess(pid: number) {
-  if (!Number.isInteger(pid) || pid < MIN_KILLABLE_PID || pid === process.pid) {
-    return false
-  }
-
+  if (!Number.isInteger(pid) || pid < MIN_KILLABLE_PID || pid === process.pid) return false
   const appPids = new Set(app.getAppMetrics().map((metric) => metric.pid))
   return !appPids.has(pid)
 }
 
 function handleTrafficAlert(stats: NetworkStat) {
-  if (isTelemetryPaused() || currentSettings.threshold <= 0) {
-    return
-  }
-
+  if (isTelemetryPaused() || currentSettings.threshold <= 0) return
   const now = Date.now()
   const cooldownMs = currentSettings.cooldownMinutes * 60 * 1000
-
-  if (now - lastAlertTime <= cooldownMs) {
-    return
-  }
+  if (now - lastAlertTime <= cooldownMs) return
 
   let title = ''
   let body = ''
@@ -278,72 +234,49 @@ function handleTrafficAlert(stats: NetworkStat) {
     body = `Upload speed: ${formatBytes(stats.tx_sec)}/s`
   }
 
-  if (!title) {
-    return
-  }
+  if (!title) return
 
-  new Notification({
-    title,
-    body,
-    silent: false,
-  }).show()
-
+  new Notification({ title, body, silent: false }).show()
   lastAlertTime = now
-  broadcast(IPC_CHANNELS.alertTriggered, {
-    title,
-    body,
-    time: new Date().toISOString(),
-  })
+  broadcast(IPC_CHANNELS.alertTriggered, { title, body, time: new Date().toISOString() })
 }
 
 async function monitorTrafficLoop() {
   try {
-    if (!isTelemetryPaused()) {
+    // Skip polling when app is minimized/hidden to save CPU
+    if (!isTelemetryPaused() && appVisible) {
       const stats = await si.networkStats()
       lastTrafficStats = {
         ...aggregateTrafficStats(stats),
         ping: lastTrafficStats.ping ?? 0,
       }
-
       broadcast(IPC_CHANNELS.trafficUpdate, lastTrafficStats)
       handleTrafficAlert(lastTrafficStats)
     }
   } catch (error) {
     console.error('Monitor loop error:', error)
   } finally {
-    trafficMonitoringTimeout = setTimeout(() => {
-      void monitorTrafficLoop()
-    }, NETWORK_POLL_INTERVAL_MS)
+    trafficMonitoringTimeout = setTimeout(() => { void monitorTrafficLoop() }, NETWORK_POLL_INTERVAL_MS)
   }
 }
 
 async function sampleLatency() {
   return new Promise<number | null>((resolve) => {
-    const timeout = setTimeout(() => {
-      resolve(null)
-    }, PING_REQUEST_TIMEOUT_MS)
-
+    const timeout = setTimeout(() => { resolve(null) }, PING_REQUEST_TIMEOUT_MS)
     void si
       .inetLatency()
       .then((latency) => {
-        if (Number.isFinite(latency) && latency >= 0) {
-          resolve(latency)
-        } else {
-          resolve(null)
-        }
+        if (Number.isFinite(latency) && latency >= 0) resolve(latency)
+        else resolve(null)
       })
-      .catch(() => {
-        resolve(null)
-      })
-      .finally(() => {
-        clearTimeout(timeout)
-      })
+      .catch(() => { resolve(null) })
+      .finally(() => { clearTimeout(timeout) })
   })
 }
 
 async function monitorPingLoop() {
   try {
-    if (!isTelemetryPaused()) {
+    if (!isTelemetryPaused() && appVisible) {
       const ping = await sampleLatency()
       if (ping !== null) {
         lastTrafficStats = { ...lastTrafficStats, ping }
@@ -353,64 +286,39 @@ async function monitorPingLoop() {
   } catch (error) {
     console.error('Ping monitor loop error:', error)
   } finally {
-    pingMonitoringTimeout = setTimeout(() => {
-      void monitorPingLoop()
-    }, PING_POLL_INTERVAL_MS)
+    pingMonitoringTimeout = setTimeout(() => { void monitorPingLoop() }, PING_POLL_INTERVAL_MS)
   }
 }
 
 async function monitorConnectionsLoop() {
   try {
-    if (!isTelemetryPaused()) {
+    if (!isTelemetryPaused() && appVisible) {
       lastConnections = await si.networkConnections()
       broadcast(IPC_CHANNELS.connectionsUpdate, lastConnections)
     }
   } catch (error) {
     console.error('Error fetching connections:', error)
   } finally {
-    connectionMonitoringTimeout = setTimeout(() => {
-      void monitorConnectionsLoop()
-    }, CONNECTION_POLL_INTERVAL_MS)
+    connectionMonitoringTimeout = setTimeout(() => { void monitorConnectionsLoop() }, CONNECTION_POLL_INTERVAL_MS)
   }
 }
 
 function startMonitoring() {
-  if (!trafficMonitoringTimeout) {
-    void monitorTrafficLoop()
-  }
-
-  if (!connectionMonitoringTimeout) {
-    void monitorConnectionsLoop()
-  }
-
-  if (!pingMonitoringTimeout) {
-    void monitorPingLoop()
-  }
+  if (!trafficMonitoringTimeout) void monitorTrafficLoop()
+  if (!connectionMonitoringTimeout) void monitorConnectionsLoop()
+  if (!pingMonitoringTimeout) void monitorPingLoop()
 }
 
 function stopMonitoring() {
-  if (trafficMonitoringTimeout) {
-    clearTimeout(trafficMonitoringTimeout)
-    trafficMonitoringTimeout = null
-  }
-
-  if (connectionMonitoringTimeout) {
-    clearTimeout(connectionMonitoringTimeout)
-    connectionMonitoringTimeout = null
-  }
-
-  if (pingMonitoringTimeout) {
-    clearTimeout(pingMonitoringTimeout)
-    pingMonitoringTimeout = null
-  }
+  if (trafficMonitoringTimeout) { clearTimeout(trafficMonitoringTimeout); trafficMonitoringTimeout = null }
+  if (connectionMonitoringTimeout) { clearTimeout(connectionMonitoringTimeout); connectionMonitoringTimeout = null }
+  if (pingMonitoringTimeout) { clearTimeout(pingMonitoringTimeout); pingMonitoringTimeout = null }
 }
 
 function registerTrustedWindow(windowRef: BrowserWindow) {
   const { id } = windowRef.webContents
   trustedWebContentsIds.add(id)
-  windowRef.webContents.once('destroyed', () => {
-    trustedWebContentsIds.delete(id)
-  })
+  windowRef.webContents.once('destroyed', () => { trustedWebContentsIds.delete(id) })
 }
 
 function createOverlayWindow() {
@@ -439,9 +347,7 @@ function createOverlayWindow() {
     void overlayWin.loadFile(path.join(process.env.DIST || '', 'index.html'), { hash: '/overlay' })
   }
 
-  overlayWin.on('closed', () => {
-    overlayWin = null
-  })
+  overlayWin.on('closed', () => { overlayWin = null })
 }
 
 function createWindow() {
@@ -460,49 +366,43 @@ function createWindow() {
   })
   registerTrustedWindow(win)
 
+  // Pause expensive polls when window is minimized or hidden
+  win.on('hide', () => { appVisible = false })
+  win.on('minimize', () => { appVisible = false })
+  win.on('show', () => { appVisible = true })
+  win.on('restore', () => { appVisible = true })
+  win.on('focus', () => { appVisible = true })
+
   if (VITE_DEV_SERVER_URL) {
     void win.loadURL(VITE_DEV_SERVER_URL)
   } else {
     void win.loadFile(path.join(process.env.DIST || '', 'index.html'))
   }
 
-  win.on('closed', () => {
-    win = null
-  })
+  win.on('closed', () => { win = null })
 }
 
 app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') {
-    app.quit()
-  }
+  if (process.platform !== 'darwin') app.quit()
 })
 
 app.on('activate', () => {
-  if (BrowserWindow.getAllWindows().length === 0) {
-    createWindow()
-  }
+  if (BrowserWindow.getAllWindows().length === 0) createWindow()
 })
 
-app.on('before-quit', () => {
-  stopMonitoring()
-})
+app.on('before-quit', () => { stopMonitoring() })
 
 void app.whenReady().then(() => {
   createWindow()
   startMonitoring()
 
   ipcMain.on(IPC_CHANNELS.updateSettings, (event, settings: Settings) => {
-    if (rejectUntrustedSender(event, IPC_CHANNELS.updateSettings)) {
-      return
-    }
-
+    if (rejectUntrustedSender(event, IPC_CHANNELS.updateSettings)) return
     currentSettings = sanitizeSettings(settings)
   })
 
   ipcMain.on(IPC_CHANNELS.setTelemetryPaused, (event, durationMs: number) => {
-    if (rejectUntrustedSender(event, IPC_CHANNELS.setTelemetryPaused)) {
-      return
-    }
+    if (rejectUntrustedSender(event, IPC_CHANNELS.setTelemetryPaused)) return
 
     const numericDurationMs = Number(durationMs)
     if (!Number.isFinite(numericDurationMs)) {
@@ -514,40 +414,24 @@ void app.whenReady().then(() => {
       Math.max(0, Math.trunc(numericDurationMs)),
       MAX_TELEMETRY_PAUSE_DURATION_MS,
     )
-
     pauseTelemetryUntil = clampedDurationMs > 0 ? Date.now() + clampedDurationMs : 0
   })
 
   ipcMain.handle(IPC_CHANNELS.getTrafficStats, (event) => {
-    if (rejectUntrustedSender(event, IPC_CHANNELS.getTrafficStats)) {
-      return null
-    }
-
+    if (rejectUntrustedSender(event, IPC_CHANNELS.getTrafficStats)) return null
     return lastTrafficStats
   })
 
   ipcMain.handle(IPC_CHANNELS.getNetworkConnections, (event) => {
-    if (rejectUntrustedSender(event, IPC_CHANNELS.getNetworkConnections)) {
-      return []
-    }
-
+    if (rejectUntrustedSender(event, IPC_CHANNELS.getNetworkConnections)) return []
     return lastConnections
   })
 
   ipcMain.handle(IPC_CHANNELS.killProcess, async (event, pid: number) => {
-    if (rejectUntrustedSender(event, IPC_CHANNELS.killProcess) || !canKillProcess(pid)) {
-      return false
-    }
-
+    if (rejectUntrustedSender(event, IPC_CHANNELS.killProcess) || !canKillProcess(pid)) return false
     try {
       await new Promise<void>((resolve, reject) => {
-        kill(pid, 'SIGKILL', (error) => {
-          if (error) {
-            reject(error)
-          } else {
-            resolve()
-          }
-        })
+        kill(pid, 'SIGKILL', (error) => { if (error) reject(error); else resolve() })
       })
       return true
     } catch (error) {
@@ -557,9 +441,7 @@ void app.whenReady().then(() => {
   })
 
   ipcMain.handle(IPC_CHANNELS.getIpLocations, async (event, ips: string[]) => {
-    if (rejectUntrustedSender(event, IPC_CHANNELS.getIpLocations)) {
-      return {}
-    }
+    if (rejectUntrustedSender(event, IPC_CHANNELS.getIpLocations)) return {}
 
     try {
       const requestedIps = Array.isArray(ips) ? ips : []
@@ -581,10 +463,7 @@ void app.whenReady().then(() => {
       const [asnReader, geoip] = await Promise.all([loadAsnReader(), loadGeoIpModule()])
 
       if (!geoip) {
-        for (const ip of cappedIps) {
-          results[ip] = null
-        }
-
+        for (const ip of cappedIps) results[ip] = null
         return results
       }
 
@@ -595,17 +474,11 @@ void app.whenReady().then(() => {
         }
 
         const geo = geoip.lookup(ip)
-        if (!geo) {
-          results[ip] = null
-          continue
-        }
+        if (!geo) { results[ip] = null; continue }
 
         const lat = Number(geo.ll[0])
         const lon = Number(geo.ll[1])
-        if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
-          results[ip] = null
-          continue
-        }
+        if (!Number.isFinite(lat) || !Number.isFinite(lon)) { results[ip] = null; continue }
 
         let isp: string | undefined
         let asn: string | undefined
@@ -622,8 +495,7 @@ void app.whenReady().then(() => {
         }
 
         results[ip] = {
-          lat,
-          lon,
+          lat, lon,
           country: geo.country,
           city: geo.city,
           ...(isp ? { isp } : {}),
@@ -639,31 +511,16 @@ void app.whenReady().then(() => {
   })
 
   ipcMain.handle(IPC_CHANNELS.toggleOverlay, (event) => {
-    if (rejectUntrustedSender(event, IPC_CHANNELS.toggleOverlay)) {
-      return false
-    }
-
-    if (overlayWin) {
-      overlayWin.close()
-      return false
-    }
-
+    if (rejectUntrustedSender(event, IPC_CHANNELS.toggleOverlay)) return false
+    if (overlayWin) { overlayWin.close(); return false }
     createOverlayWindow()
     return true
   })
 
   ipcMain.handle(IPC_CHANNELS.setOverlayMode, (event, mode: OverlayMode) => {
-    if (rejectUntrustedSender(event, IPC_CHANNELS.setOverlayMode)) {
-      return false
-    }
-
-    if (mode !== 'locked' && mode !== 'unlocked') {
-      return false
-    }
-
-    if (!overlayWin || overlayWin.isDestroyed()) {
-      return false
-    }
+    if (rejectUntrustedSender(event, IPC_CHANNELS.setOverlayMode)) return false
+    if (mode !== 'locked' && mode !== 'unlocked') return false
+    if (!overlayWin || overlayWin.isDestroyed()) return false
 
     if (mode === 'locked') {
       overlayWin.setIgnoreMouseEvents(true, { forward: true })
@@ -672,7 +529,6 @@ void app.whenReady().then(() => {
       overlayWin.setIgnoreMouseEvents(false)
       overlayWin.setFocusable(true)
     }
-
     return true
   })
 })

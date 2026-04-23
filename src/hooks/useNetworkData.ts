@@ -8,6 +8,8 @@ import type { AlertPayload } from '../lib/ipc'
 import { useTrafficStats } from './useTrafficStats'
 import { useConnectionList } from './useConnectionList'
 
+const MAX_HISTORY = 120
+
 export function useNetworkData(settings: Settings) {
   const trafficStats = useTrafficStats()
   const connectionList = useConnectionList()
@@ -47,7 +49,6 @@ export function useNetworkData(settings: Settings) {
 
   useEffect(() => {
     if (typeof window === 'undefined') return
-
     if (telemetryPaused && telemetryResumeAt) {
       const remaining = telemetryResumeAt - Date.now()
       window.desktop.setTelemetryPaused(Math.max(remaining, 0))
@@ -65,19 +66,13 @@ export function useNetworkData(settings: Settings) {
       setAlertIndicator(true)
       setAlertLog((prev) => [{ time, direction, rate: rateMatch ? rateMatch[1] : 'High' }, ...prev].slice(0, 50))
 
-      if (alertIndicatorTimeoutRef.current) {
-        window.clearTimeout(alertIndicatorTimeoutRef.current)
-      }
-      alertIndicatorTimeoutRef.current = window.setTimeout(() => {
-        setAlertIndicator(false)
-      }, 2000)
+      if (alertIndicatorTimeoutRef.current) window.clearTimeout(alertIndicatorTimeoutRef.current)
+      alertIndicatorTimeoutRef.current = window.setTimeout(() => { setAlertIndicator(false) }, 2000)
     })
 
     return () => {
       unsubscribe()
-      if (alertIndicatorTimeoutRef.current) {
-        window.clearTimeout(alertIndicatorTimeoutRef.current)
-      }
+      if (alertIndicatorTimeoutRef.current) window.clearTimeout(alertIndicatorTimeoutRef.current)
     }
   }, [])
 
@@ -99,7 +94,6 @@ export function useNetworkData(settings: Settings) {
 
     refreshCountdown()
     const interval = setInterval(refreshCountdown, 1000)
-
     return () => { clearInterval(interval) }
   }, [telemetryResumeAt])
 
@@ -116,10 +110,7 @@ export function useNetworkData(settings: Settings) {
         rx: data.rx_sec,
         tx: data.tx_sec,
       }).then(async () => {
-        if (timestamp - lastPruneAtRef.current < 60 * 1000) {
-          return
-        }
-
+        if (timestamp - lastPruneAtRef.current < 60 * 1000) return
         lastPruneAtRef.current = timestamp
         await db.traffic_logs.where('timestamp').below(timestamp - HISTORY_RETENTION_MS).delete()
       }).catch((error) => {
@@ -128,10 +119,9 @@ export function useNetworkData(settings: Settings) {
     }
 
     setHistory((prev) => {
-      const newPoint = { time: new Date().toLocaleTimeString(), rx: data.rx_sec, tx: data.tx_sec }
-      const nextHistory = [...prev, newPoint]
-      if (nextHistory.length > 300) nextHistory.shift()
-      return nextHistory
+      const newPoint: HistoryPoint = { time: new Date().toLocaleTimeString(), rx: data.rx_sec, tx: data.tx_sec }
+      const next = prev.concat(newPoint)
+      return next.length > MAX_HISTORY ? next.slice(next.length - MAX_HISTORY) : next
     })
 
     setSessionUsage((prev) => ({ rx: prev.rx + data.rx_sec, tx: prev.tx + data.tx_sec }))
@@ -143,10 +133,7 @@ export function useNetworkData(settings: Settings) {
   }, [connectionList, trafficStats])
 
   const stats = useMemo<NetworkStat | null>(() => {
-    if (!trafficStats) {
-      return null
-    }
-
+    if (!trafficStats) return null
     return {
       rx_sec: trafficStats.rx_sec,
       tx_sec: trafficStats.tx_sec,
@@ -167,7 +154,7 @@ export function useNetworkData(settings: Settings) {
   return {
     stats,
     history,
-    connections: connectionList, 
+    connections: connectionList,
     processUsage,
     sessionUsage,
     maxSpikes,

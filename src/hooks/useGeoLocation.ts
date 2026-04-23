@@ -13,6 +13,7 @@ interface CachedGeoEntry {
 
 const POSITIVE_CACHE_TTL_MS = 24 * 60 * 60 * 1000
 const NEGATIVE_CACHE_TTL_MS = 5 * 60 * 1000
+const DEBOUNCE_MS = 800
 
 const GLOBAL_IP_CACHE = new Map<string, CachedGeoEntry>()
 
@@ -25,7 +26,6 @@ export function useGeoLocation(ips: string[]) {
         GLOBAL_IP_CACHE.delete(key)
         return
       }
-
       if (entry.location) {
         initialMap.set(key, entry.location)
       }
@@ -45,15 +45,11 @@ export function useGeoLocation(ips: string[]) {
 
       for (const ip of requestedIps) {
         const cachedEntry = GLOBAL_IP_CACHE.get(ip)
-        if (!cachedEntry) {
-          continue
-        }
+        if (!cachedEntry) continue
 
         if (cachedEntry.expiresAt <= now) {
           GLOBAL_IP_CACHE.delete(ip)
-          if (next.delete(ip)) {
-            changed = true
-          }
+          if (next.delete(ip)) changed = true
           continue
         }
 
@@ -71,16 +67,12 @@ export function useGeoLocation(ips: string[]) {
       const scanNow = Date.now()
 
       for (const ip of ips) {
-        if (isPrivateOrLocalIp(ip)) {
-          continue
-        }
+        if (isPrivateOrLocalIp(ip)) continue
 
         const cachedEntry = GLOBAL_IP_CACHE.get(ip)
         const isCacheFresh = Boolean(cachedEntry && cachedEntry.expiresAt > scanNow)
 
-        if (!isCacheFresh) {
-          GLOBAL_IP_CACHE.delete(ip)
-        }
+        if (!isCacheFresh) GLOBAL_IP_CACHE.delete(ip)
 
         if (!isCacheFresh && !pendingRequests.current.has(ip)) {
           ipsToFetch.push(ip)
@@ -113,7 +105,6 @@ export function useGeoLocation(ips: string[]) {
                 expiresAt: cacheNow + NEGATIVE_CACHE_TTL_MS,
               })
             }
-
             pendingRequests.current.delete(ip)
           })
 
@@ -126,9 +117,7 @@ export function useGeoLocation(ips: string[]) {
     }
 
     if (ips.length > 0) {
-      const timer = setTimeout(() => {
-        void resolveIps()
-      }, 500)
+      const timer = setTimeout(() => { void resolveIps() }, DEBOUNCE_MS)
       return () => clearTimeout(timer)
     }
   }, [ips])
@@ -136,16 +125,10 @@ export function useGeoLocation(ips: string[]) {
   const locationList = useMemo(() => Array.from(locations.values()), [locations])
 
   const myLocation = useMemo<GeoLocation | null>(() => {
-    if (locationList.length === 0) {
-      return null
-    }
+    if (locationList.length === 0) return null
 
     const averaged = locationList.reduce(
-      (accumulator, location) => {
-        accumulator.lat += location.lat
-        accumulator.lon += location.lon
-        return accumulator
-      },
+      (acc, loc) => { acc.lat += loc.lat; acc.lon += loc.lon; return acc },
       { lat: 0, lon: 0 },
     )
 
