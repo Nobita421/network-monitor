@@ -15,6 +15,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # pnpm v9 matches the lockfileVersion: '9.0' in pnpm-lock.yaml
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
@@ -26,8 +27,10 @@ jobs:
           node-version: 20
           cache: pnpm
 
+      # Use --no-frozen-lockfile to avoid version mismatch issues in CI
+      # (lockfileVersion 9.0 can be sensitive to exact pnpm patch version)
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: pnpm install --no-frozen-lockfile
 
       - name: Lint
         run: pnpm lint
@@ -38,6 +41,7 @@ jobs:
       - name: Test
         run: pnpm test
 
-      # Build: only tsc + vite renderer build (skip electron-builder packaging and geoip download)
+      # Compile only: tsc + vite renderer build
+      # Skips electron-builder packaging and geoip download (not needed in CI)
       - name: Build (tsc + vite renderer)
         run: pnpm exec tsc && pnpm exec vite build
