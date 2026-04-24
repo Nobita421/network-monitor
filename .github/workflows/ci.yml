@@ -19,16 +19,15 @@ jobs:
         uses: pnpm/action-setup@v3
         with:
           version: 9
+          run_install: false
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          # pnpm cache disabled: pnpm-workspace.yaml has no packages field
-          # which causes setup-node cache step to fail
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: pnpm install --frozen-lockfile --ignore-workspace
 
       - name: TypeScript type check
         run: pnpm exec tsc --noEmit
