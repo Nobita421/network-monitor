@@ -3,6 +3,7 @@ import { DashboardView } from './components/dashboard/DashboardView'
 import { SettingsModal } from './components/dashboard/SettingsModal'
 import { Header } from './components/layout/Header'
 import { Sidebar } from './components/layout/Sidebar'
+import { CommandPalette } from './components/ui/CommandPalette'
 import { useNetworkData } from './hooks/useNetworkData'
 import { useSettings } from './hooks/useSettings'
 import type { HistoryRange } from './types'
@@ -24,7 +25,6 @@ function OverlayShell() {
   useEffect(() => {
     document.body.style.backgroundColor = 'transparent'
   }, [])
-
   return (
     <Suspense fallback={<ViewFallback />}>
       <OverlayView />
@@ -36,38 +36,32 @@ function MainShell() {
   const [activeTab, setActiveTab] = useState<'dashboard' | 'connections' | 'map' | 'history'>('dashboard')
   const [historyRange, setHistoryRange] = useState<HistoryRange>('60s')
   const [lastExportTime, setLastExportTime] = useState<string | null>(null)
+  const [cmdOpen, setCmdOpen] = useState(false)
+
+  const { settings, isModalOpen, setIsModalOpen, draft, updateDraft, saveSettings } = useSettings()
 
   const {
-    settings,
-    isModalOpen,
-    setIsModalOpen,
-    draft,
-    updateDraft,
-    saveSettings,
-  } = useSettings()
-
-  const {
-    stats,
-    history,
-    connections,
-    processUsage,
-    sessionUsage,
-    maxSpikes,
-    alertLog,
-    elapsedSeconds,
-    alertIndicator,
-    telemetryPaused,
-    pauseCountdown,
-    toggleTelemetry,
+    stats, history, connections, processUsage, sessionUsage,
+    maxSpikes, alertLog, elapsedSeconds, alertIndicator,
+    telemetryPaused, pauseCountdown, toggleTelemetry,
   } = useNetworkData(settings)
 
-  const handleExportHistory = useCallback(() => {
-    if (!history.length) {
-      return
+  // Global Ctrl+K / Cmd+K listener
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+        e.preventDefault()
+        setCmdOpen(prev => !prev)
+      }
     }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [])
 
+  const handleExportHistory = useCallback(() => {
+    if (!history.length) return
     const header = 'timestamp,download_bytes_per_sec,upload_bytes_per_sec'
-    const rows = history.map((point) => `${point.time},${point.rx},${point.tx}`)
+    const rows = history.map(p => `${p.time},${p.rx},${p.tx}`)
     const csv = [header, ...rows].join('\n')
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
     const url = URL.createObjectURL(blob)
@@ -82,9 +76,7 @@ function MainShell() {
   }, [history])
 
   const handleTabChange = useCallback((tab: 'dashboard' | 'connections' | 'map' | 'history') => {
-    startTransition(() => {
-      setActiveTab(tab)
-    })
+    startTransition(() => setActiveTab(tab))
   }, [])
 
   return (
@@ -93,12 +85,7 @@ function MainShell() {
       <div className="pointer-events-none absolute inset-y-0 right-0 w-1/2 bg-[radial-gradient(circle_at_top_right,_rgba(34,197,94,0.15),_transparent_55%)]" />
 
       <div className="relative flex h-screen overflow-hidden">
-        <Sidebar
-          activeTab={activeTab}
-          setActiveTab={handleTabChange}
-          stats={stats}
-          elapsedSeconds={elapsedSeconds}
-        />
+        <Sidebar activeTab={activeTab} setActiveTab={handleTabChange} stats={stats} elapsedSeconds={elapsedSeconds} />
 
         <div className="flex min-w-0 flex-1 flex-col">
           <Header
@@ -110,6 +97,7 @@ function MainShell() {
             onExport={handleExportHistory}
             onOpenSettings={() => setIsModalOpen(true)}
             onTogglePause={toggleTelemetry}
+            onOpenCommandPalette={() => setCmdOpen(true)}
           />
 
           <div className="relative flex-1 overflow-hidden">
@@ -129,7 +117,6 @@ function MainShell() {
                     onOpenSettings={() => setIsModalOpen(true)}
                   />
                 )}
-
                 {activeTab === 'connections' && (
                   <Suspense fallback={<ViewFallback />}>
                     <ConnectionsView
@@ -146,13 +133,11 @@ function MainShell() {
                     />
                   </Suspense>
                 )}
-
                 {activeTab === 'map' && (
                   <Suspense fallback={<ViewFallback />}>
                     <GlobeView connections={connections} />
                   </Suspense>
                 )}
-
                 {activeTab === 'history' && (
                   <Suspense fallback={<ViewFallback />}>
                     <HistoryView />
@@ -170,6 +155,19 @@ function MainShell() {
         draft={draft}
         updateDraft={updateDraft}
         onSave={saveSettings}
+      />
+
+      {/* Command Palette */}
+      <CommandPalette
+        isOpen={cmdOpen}
+        onClose={() => setCmdOpen(false)}
+        activeTab={activeTab}
+        onTabChange={handleTabChange}
+        onExport={handleExportHistory}
+        onTogglePause={toggleTelemetry}
+        onOpenSettings={() => { setIsModalOpen(true); setCmdOpen(false) }}
+        telemetryPaused={telemetryPaused}
+        hasHistory={history.length > 0}
       />
     </div>
   )
