@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
-import { Search, Activity, List, Globe, History, Download, Pause, Play, Settings, X } from 'lucide-react'
+import type { ReactNode } from 'react'
+import { Search, Activity, List, Globe, History, Download, Pause, Play, Settings, X, AlertCircle } from 'lucide-react'
 
 type Tab = 'dashboard' | 'connections' | 'map' | 'history'
 
@@ -7,9 +8,11 @@ interface Command {
   id: string
   label: string
   description: string
-  icon: React.ReactNode
+  icon: ReactNode
   action: () => void
   keywords: string[]
+  disabled?: boolean
+  disabledReason?: string
 }
 
 interface CommandPaletteProps {
@@ -74,15 +77,25 @@ export function CommandPalette({
     {
       id: 'export',
       label: 'Export Snapshot CSV',
-      description: 'Download current history as CSV',
-      icon: <Download size={16} className="text-emerald-400" />,
-      action: () => { onExport(); onClose() },
+      description: hasHistory
+        ? 'Download current history as CSV'
+        : 'No data yet — start monitoring first',
+      icon: hasHistory
+        ? <Download size={16} className="text-emerald-400" />
+        : <AlertCircle size={16} className="text-slate-500" />,
+      action: () => {
+        if (hasHistory) { onExport(); onClose() }
+      },
       keywords: ['export', 'csv', 'download', 'snapshot'],
+      disabled: !hasHistory,
+      disabledReason: 'No history data available yet',
     },
     {
       id: 'pause',
       label: telemetryPaused ? 'Resume Telemetry' : 'Pause Telemetry',
-      description: telemetryPaused ? 'Resume live data collection' : 'Temporarily pause data collection',
+      description: telemetryPaused
+        ? 'Resume live data collection'
+        : 'Temporarily pause data collection',
       icon: telemetryPaused
         ? <Play size={16} className="text-amber-400" />
         : <Pause size={16} className="text-amber-400" />,
@@ -109,9 +122,7 @@ export function CommandPalette({
 
   const [selectedIndex, setSelectedIndex] = useState(0)
 
-  useEffect(() => {
-    setSelectedIndex(0)
-  }, [query])
+  useEffect(() => { setSelectedIndex(0) }, [query])
 
   useEffect(() => {
     if (isOpen) {
@@ -130,7 +141,8 @@ export function CommandPalette({
       setSelectedIndex(i => Math.max(i - 1, 0))
     } else if (e.key === 'Enter') {
       e.preventDefault()
-      filtered[selectedIndex]?.action()
+      const cmd = filtered[selectedIndex]
+      if (cmd && !cmd.disabled) cmd.action()
     } else if (e.key === 'Escape') {
       onClose()
     }
@@ -143,10 +155,8 @@ export function CommandPalette({
       className="fixed inset-0 z-50 flex items-start justify-center pt-[15vh]"
       onClick={onClose}
     >
-      {/* Backdrop */}
       <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-sm" />
 
-      {/* Palette */}
       <div
         className="relative w-full max-w-xl overflow-hidden rounded-2xl border border-white/10 bg-slate-900 shadow-2xl shadow-black/60"
         onClick={e => e.stopPropagation()}
@@ -176,13 +186,17 @@ export function CommandPalette({
             filtered.map((cmd, i) => (
               <li key={cmd.id}>
                 <button
+                  disabled={cmd.disabled}
+                  title={cmd.disabled ? cmd.disabledReason : undefined}
                   className={`flex w-full items-center gap-3 px-4 py-2.5 text-left transition-colors ${
-                    i === selectedIndex
-                      ? 'bg-sky-500/10 text-white'
-                      : 'text-slate-300 hover:bg-white/5'
+                    cmd.disabled
+                      ? 'cursor-not-allowed opacity-40'
+                      : i === selectedIndex
+                        ? 'bg-sky-500/10 text-white'
+                        : 'text-slate-300 hover:bg-white/5'
                   }`}
-                  onClick={cmd.action}
-                  onMouseEnter={() => setSelectedIndex(i)}
+                  onClick={cmd.disabled ? undefined : cmd.action}
+                  onMouseEnter={() => { if (!cmd.disabled) setSelectedIndex(i) }}
                 >
                   <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-white/10 bg-white/5">
                     {cmd.icon}
@@ -193,6 +207,9 @@ export function CommandPalette({
                   </span>
                   {activeTab === cmd.id.replace('nav-', '') && (
                     <span className="rounded-full bg-sky-500/20 px-2 py-0.5 text-[10px] text-sky-300">active</span>
+                  )}
+                  {cmd.disabled && (
+                    <span className="rounded-full bg-slate-700/60 px-2 py-0.5 text-[10px] text-slate-400">unavailable</span>
                   )}
                 </button>
               </li>

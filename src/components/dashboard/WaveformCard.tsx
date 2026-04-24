@@ -5,10 +5,10 @@ interface WaveformCardProps {
   label: string
   value: string
   subLabel: string
-  history: number[]        // last N raw values
+  history: number[]
   color: 'emerald' | 'sky' | 'slate' | 'lime'
   icon: ReactNode
-  threshold?: number       // optional — drives glow intensity
+  threshold?: number
 }
 
 const COLOR_MAP = {
@@ -17,7 +17,6 @@ const COLOR_MAP = {
     fill: 'rgba(34,197,94,0.15)',
     border: 'rgba(34,197,94,0.35)',
     glow: 'rgba(34,197,94,0.25)',
-    text: 'text-emerald-300',
     sub: 'text-emerald-100/70',
     label: 'text-emerald-200',
   },
@@ -26,7 +25,6 @@ const COLOR_MAP = {
     fill: 'rgba(56,189,248,0.15)',
     border: 'rgba(56,189,248,0.35)',
     glow: 'rgba(56,189,248,0.25)',
-    text: 'text-sky-300',
     sub: 'text-sky-100/70',
     label: 'text-sky-200',
   },
@@ -35,7 +33,6 @@ const COLOR_MAP = {
     fill: 'rgba(148,163,184,0.1)',
     border: 'rgba(255,255,255,0.1)',
     glow: 'rgba(148,163,184,0.1)',
-    text: 'text-white',
     sub: 'text-slate-400',
     label: 'text-slate-400',
   },
@@ -44,7 +41,6 @@ const COLOR_MAP = {
     fill: 'rgba(163,230,53,0.15)',
     border: 'rgba(163,230,53,0.35)',
     glow: 'rgba(163,230,53,0.25)',
-    text: 'text-lime-300',
     sub: 'text-lime-100/70',
     label: 'text-lime-200',
   },
@@ -79,7 +75,6 @@ export function WaveformCard({
 }: WaveformCardProps) {
   const c = COLOR_MAP[color]
 
-  // glow intensity based on current value vs threshold
   const glowIntensity = useMemo(() => {
     if (!threshold || history.length === 0) return 0.2
     const latest = history[history.length - 1] ?? 0
@@ -100,7 +95,6 @@ export function WaveformCard({
         boxShadow: `0 0 ${Math.round(glowIntensity * 40)}px ${c.glow}`,
       }}
     >
-      {/* Waveform background */}
       <div className="pointer-events-none absolute bottom-0 left-0 right-0 opacity-70">
         <svg
           viewBox={`0 0 ${W} ${H}`}
@@ -115,9 +109,7 @@ export function WaveformCard({
               <stop offset="100%" stopColor={c.stroke} stopOpacity={0} />
             </linearGradient>
           </defs>
-          {fillPath && (
-            <path d={fillPath} fill={`url(#wf-fill-${color})`} />
-          )}
+          {fillPath && <path d={fillPath} fill={`url(#wf-fill-${color})`} />}
           {linePath && (
             <path
               d={linePath}
@@ -131,13 +123,12 @@ export function WaveformCard({
         </svg>
       </div>
 
-      {/* Content */}
       <div className="relative z-10">
         <div className={`flex items-center justify-between text-xs uppercase tracking-wide ${c.label}`}>
           <span>{label}</span>
           <span className="opacity-70">{icon}</span>
         </div>
-        <p className={`mt-2 text-3xl font-semibold text-white`}>{value}</p>
+        <p className="mt-2 text-3xl font-semibold text-white">{value}</p>
         <p className={`mt-0.5 text-sm ${c.sub}`}>{subLabel}</p>
       </div>
     </div>
