@@ -24,7 +24,8 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'pnpm'
+          # pnpm cache disabled: pnpm-workspace.yaml has no packages field
+          # which causes setup-node cache step to fail
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
