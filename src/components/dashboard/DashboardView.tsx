@@ -6,6 +6,8 @@ import { formatBytes, formatMinutesDuration } from '../../lib/utils'
 import { Card } from '../ui/Card'
 import { NetworkChart } from './NetworkChart'
 import { ProcessList } from './ProcessList'
+import { WaveformCard } from './WaveformCard'
+import { PulseTimeline } from './PulseTimeline'
 
 interface DashboardViewProps {
   stats: NetworkStat | null
@@ -40,27 +42,33 @@ export function DashboardView({
   }, [history, historyRange])
 
   const averages = useMemo(() => {
-    if (!displayedHistory.length) {
-      return { rx: 0, tx: 0 }
-    }
-
+    if (!displayedHistory.length) return { rx: 0, tx: 0 }
     const totals = displayedHistory.reduce(
-      (accumulator, point) => {
-        accumulator.rx += point.rx
-        accumulator.tx += point.tx
-        return accumulator
-      },
+      (acc, p) => { acc.rx += p.rx; acc.tx += p.tx; return acc },
       { rx: 0, tx: 0 },
     )
-
-    return {
-      rx: totals.rx / displayedHistory.length,
-      tx: totals.tx / displayedHistory.length,
-    }
+    return { rx: totals.rx / displayedHistory.length, tx: totals.tx / displayedHistory.length }
   }, [displayedHistory])
+
+  // extract raw number arrays for waveform sparklines
+  const rxHistory = useMemo(() => history.slice(-30).map(p => p.rx), [history])
+  const txHistory = useMemo(() => history.slice(-30).map(p => p.tx), [history])
+  const sessionHistory = useMemo(() => history.slice(-30).map(p => p.rx + p.tx), [history])
+
+  const healthScore = Math.max(
+    35,
+    100 - Math.round(((stats?.rx_sec ?? 0) + (stats?.tx_sec ?? 0)) / Math.max(settings.threshold, 1) * 100),
+  )
+  const healthHistory = useMemo(() =>
+    history.slice(-30).map(p =>
+      Math.max(35, 100 - Math.round((p.rx + p.tx) / Math.max(settings.threshold, 1) * 100))
+    ),
+    [history, settings.threshold]
+  )
 
   return (
     <div className="space-y-8">
+      {/* Hero banner */}
       <section className="rounded-3xl border border-white/5 bg-white/5 p-6 backdrop-blur">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
@@ -81,44 +89,49 @@ export function DashboardView({
         </div>
       </section>
 
+      {/* Waveform Speed Cards — replaces flat stat boxes */}
       <section className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
-        <div className="rounded-2xl border border-emerald-400/30 bg-gradient-to-br from-emerald-500/20 to-transparent p-5">
-          <div className="flex items-center justify-between text-xs uppercase tracking-wide text-emerald-200">
-            Download now
-            <Lucide.ArrowDown size={16} />
-          </div>
-          <p className="mt-3 text-3xl font-semibold text-white">{stats ? `${formatBytes(stats.rx_sec)}/s` : '--'}</p>
-          <p className="text-sm text-emerald-100/80">Avg {formatBytes(averages.rx)}/s</p>
-        </div>
-
-        <div className="rounded-2xl border border-sky-400/30 bg-gradient-to-br from-sky-500/20 to-transparent p-5">
-          <div className="flex items-center justify-between text-xs uppercase tracking-wide text-sky-200">
-            Upload now
-            <Lucide.ArrowUp size={16} />
-          </div>
-          <p className="mt-3 text-3xl font-semibold text-white">{stats ? `${formatBytes(stats.tx_sec)}/s` : '--'}</p>
-          <p className="text-sm text-sky-100/80">Avg {formatBytes(averages.tx)}/s</p>
-        </div>
-
-        <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
-          <p className="text-xs uppercase tracking-wide text-slate-400">Session usage</p>
-          <p className="mt-3 text-2xl font-semibold text-white">{formatBytes(sessionTotal)}</p>
-          <p className="text-sm text-slate-400">{formatBytes(sessionUsage.rx)} down / {formatBytes(sessionUsage.tx)} up</p>
-        </div>
-
-        <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
-          <p className="text-xs uppercase tracking-wide text-slate-400">Health score</p>
-          <p className="mt-3 text-4xl font-semibold text-lime-300">
-            {Math.max(
-              35,
-              100 - Math.round(((stats?.rx_sec || 0) + (stats?.tx_sec || 0)) / Math.max(settings.threshold, 1) * 100),
-            )}
-          </p>
-          <p className="text-sm text-slate-400">Based on current threshold</p>
-        </div>
+        <WaveformCard
+          label="Download now"
+          value={stats ? `${formatBytes(stats.rx_sec)}/s` : '--'}
+          subLabel={`Avg ${formatBytes(averages.rx)}/s`}
+          history={rxHistory}
+          color="emerald"
+          icon={<Lucide.ArrowDown size={14} />}
+          threshold={settings.threshold}
+        />
+        <WaveformCard
+          label="Upload now"
+          value={stats ? `${formatBytes(stats.tx_sec)}/s` : '--'}
+          subLabel={`Avg ${formatBytes(averages.tx)}/s`}
+          history={txHistory}
+          color="sky"
+          icon={<Lucide.ArrowUp size={14} />}
+          threshold={settings.threshold}
+        />
+        <WaveformCard
+          label="Session usage"
+          value={formatBytes(sessionTotal)}
+          subLabel={`${formatBytes(sessionUsage.rx)} ↓  ${formatBytes(sessionUsage.tx)} ↑`}
+          history={sessionHistory}
+          color="slate"
+          icon={<Lucide.Database size={14} />}
+        />
+        <WaveformCard
+          label="Health score"
+          value={String(healthScore)}
+          subLabel="Based on current threshold"
+          history={healthHistory}
+          color="lime"
+          icon={<Lucide.HeartPulse size={14} />}
+          threshold={100}
+        />
       </section>
 
       <NetworkChart history={history} range={historyRange} onRangeChange={setHistoryRange} />
+
+      {/* Anomaly Pulse Timeline — replaces plain alert log list */}
+      <PulseTimeline alertLog={alertLog} />
 
       <section className="grid gap-5 lg:grid-cols-2">
         <Card>
@@ -135,19 +148,9 @@ export function DashboardView({
             </div>
             <div className="flex-1 space-y-2 text-sm text-slate-300">
               <p>Notifications muted for {formatMinutesDuration(settings.cooldownMinutes)} cooldown.</p>
-              <p>Last alert: {alertLog[0]?.time || 'No alerts yet'}</p>
+              <p>Last alert: {alertLog[0]?.time ?? 'No alerts yet'}</p>
             </div>
           </div>
-          {alertLog.length > 0 && (
-            <ul className="mt-4 space-y-2 text-sm text-slate-300">
-              {alertLog.map((log, index) => (
-                <li key={`${log.time}-${index}`} className="flex items-center gap-2 text-xs text-slate-400">
-                  <span className={`h-2 w-2 rounded-full ${log.direction === 'rx' ? 'bg-emerald-400' : 'bg-sky-400'}`} />
-                  Spike at {log.time} / {log.rate}
-                </li>
-              ))}
-            </ul>
-          )}
         </Card>
 
         <Card>
