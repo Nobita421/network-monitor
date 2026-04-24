@@ -6,11 +6,12 @@ interface PulseTimelineProps {
   alertLog: AlertLogEntry[]
 }
 
-function severityConfig(msg: string) {
-  const lower = msg.toLowerCase()
-  if (lower.includes('critical') || lower.includes('extreme'))
+/** Derive visual severity from the raw bytes/s rate string e.g. "12.4 MB/s" */
+function severityConfig(rate: string) {
+  const num = parseFloat(rate)
+  if (num >= 50e6)
     return { ring: 'border-rose-500/60',   bg: 'bg-rose-500/10',   dot: 'bg-rose-400',   text: 'text-rose-300',   label: 'Critical' }
-  if (lower.includes('high') || lower.includes('spike'))
+  if (num >= 10e6)
     return { ring: 'border-amber-500/60',  bg: 'bg-amber-500/10',  dot: 'bg-amber-400',  text: 'text-amber-300',  label: 'High' }
   return   { ring: 'border-yellow-500/50', bg: 'bg-yellow-500/8',  dot: 'bg-yellow-400', text: 'text-yellow-300', label: 'Warn' }
 }
@@ -37,7 +38,6 @@ export function PulseTimeline({ alertLog }: PulseTimelineProps) {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          {/* Live indicator */}
           <span className="flex items-center gap-1.5 rounded-full border border-emerald-400/20 bg-emerald-400/10 px-2.5 py-1 text-[10px] text-emerald-400">
             <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
             Live
@@ -56,26 +56,27 @@ export function PulseTimeline({ alertLog }: PulseTimelineProps) {
       ) : (
         <div ref={scrollRef} className="flex gap-3 overflow-x-auto pb-2 scrollbar-none">
           {alertLog.map((entry, i) => {
-            const s = severityConfig(entry.message)
+            const s = severityConfig(entry.rate)
             const isRx = entry.direction === 'rx'
             return (
               <div
                 key={i}
                 className={`group relative shrink-0 w-44 rounded-xl border ${s.ring} ${s.bg} p-3 transition-all hover:scale-105 cursor-default`}
               >
-                {/* Severity dot */}
                 <div className="flex items-center justify-between mb-2">
                   <span className={`flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider ${s.text}`}>
                     <span className={`h-1.5 w-1.5 rounded-full ${s.dot}`} />
                     {s.label}
                   </span>
-                  <span className="text-slate-600">
-                    {isRx ? <ArrowDown size={11} className="text-emerald-500" /> : <ArrowUp size={11} className="text-sky-500" />}
+                  <span>
+                    {isRx
+                      ? <ArrowDown size={11} className="text-emerald-500" />
+                      : <ArrowUp   size={11} className="text-sky-500" />}
                   </span>
                 </div>
                 <p className="text-[10px] text-slate-500 mb-1">{entry.time}</p>
                 <p className={`text-xs font-semibold ${s.text} flex items-center gap-1`}>
-                  <Zap size={10} /> {entry.message}
+                  <Zap size={10} /> {entry.rate}
                 </p>
               </div>
             )
