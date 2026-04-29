@@ -15,8 +15,11 @@ const OverlayView = lazy(async () => ({ default: (await import('./components/ove
 
 function ViewFallback() {
   return (
-    <div className="flex min-h-[320px] items-center justify-center rounded-3xl border border-white/5 bg-white/5 text-sm text-slate-400">
-      Loading view...
+    <div className="flex min-h-[320px] items-center justify-center">
+      <div className="flex flex-col items-center gap-3">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-sky-400/20 border-t-sky-400" />
+        <p className="text-xs text-slate-500 tracking-wider uppercase">Loading view</p>
+      </div>
     </div>
   )
 }
@@ -80,11 +83,23 @@ function MainShell() {
   }, [])
 
   return (
-    <div className="relative min-h-screen bg-slate-950 font-sans text-slate-100">
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(56,189,248,0.15),_transparent_55%)]" />
-      <div className="pointer-events-none absolute inset-y-0 right-0 w-1/2 bg-[radial-gradient(circle_at_top_right,_rgba(34,197,94,0.15),_transparent_55%)]" />
+    <div className="relative min-h-screen bg-[#030712] font-sans text-slate-100 overflow-hidden">
+      {/* Ambient background glow layers */}
+      <div className="pointer-events-none fixed inset-0 z-0">
+        <div className="absolute top-0 left-1/4 w-[600px] h-[400px] bg-sky-500/[0.07] rounded-full blur-[120px]" />
+        <div className="absolute top-1/3 right-0 w-[500px] h-[400px] bg-indigo-500/[0.06] rounded-full blur-[100px]" />
+        <div className="absolute bottom-0 left-0 w-[400px] h-[300px] bg-violet-500/[0.05] rounded-full blur-[100px]" />
+        {/* Subtle grid texture */}
+        <div
+          className="absolute inset-0 opacity-[0.015]"
+          style={{
+            backgroundImage: `linear-gradient(rgba(255,255,255,0.5) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.5) 1px, transparent 1px)`,
+            backgroundSize: '40px 40px',
+          }}
+        />
+      </div>
 
-      <div className="relative flex h-screen overflow-hidden">
+      <div className="relative z-10 flex h-screen overflow-hidden">
         <Sidebar activeTab={activeTab} setActiveTab={handleTabChange} stats={stats} elapsedSeconds={elapsedSeconds} />
 
         <div className="flex min-w-0 flex-1 flex-col">
@@ -102,7 +117,7 @@ function MainShell() {
 
           <div className="relative flex-1 overflow-hidden">
             <div className="absolute inset-0 overflow-auto">
-              <div className="px-6 py-8">
+              <div className="px-6 py-6">
                 {activeTab === 'dashboard' && (
                   <DashboardView
                     stats={stats}
@@ -157,7 +172,6 @@ function MainShell() {
         onSave={saveSettings}
       />
 
-      {/* Command Palette */}
       <CommandPalette
         isOpen={cmdOpen}
         onClose={() => setCmdOpen(false)}

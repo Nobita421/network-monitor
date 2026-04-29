@@ -13,82 +13,154 @@ interface SettingsModalProps {
     onSave: () => void
 }
 
+interface SliderRowProps {
+  label: string
+  description: string
+  min: number
+  max: number
+  step: number
+  value: number
+  displayValue: string
+  accentColor: string
+  onChange: (v: number) => void
+  icon: React.ReactNode
+}
+
+function SliderRow({ label, description, min, max, step, value, displayValue, accentColor, onChange, icon }: SliderRowProps) {
+  const pct = ((value - min) / (max - min)) * 100
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <span className={`${accentColor}`}>{icon}</span>
+          <label className="text-[13px] font-semibold text-slate-200">{label}</label>
+        </div>
+        <span className={`text-[13px] font-bold font-data ${accentColor}`}>{displayValue}</span>
+      </div>
+      <div className="relative">
+        <div className="h-1.5 w-full rounded-full bg-white/[0.06] overflow-hidden">
+          <div
+            className="h-full rounded-full transition-all duration-150"
+            style={{
+              width: `${pct}%`,
+              background: accentColor.includes('sky') ? 'linear-gradient(90deg, #0ea5e9, #38bdf8)'
+                : accentColor.includes('emerald') ? 'linear-gradient(90deg, #10b981, #34d399)'
+                : 'linear-gradient(90deg, #d97706, #fbbf24)',
+            }}
+          />
+        </div>
+        <input
+          type="range"
+          min={min}
+          max={max}
+          step={step}
+          value={value}
+          onChange={(e) => onChange(Number(e.target.value))}
+          className="absolute inset-0 w-full opacity-0 cursor-pointer h-1.5"
+          style={{ background: 'transparent' }}
+        />
+        {/* Custom thumb */}
+        <div
+          className="pointer-events-none absolute top-1/2 -translate-y-1/2 h-4 w-4 rounded-full bg-white shadow-md shadow-black/40 border border-white/20 transition-all"
+          style={{ left: `calc(${pct}% - 8px)` }}
+        />
+      </div>
+      <p className="text-[11px] text-slate-600">{description}</p>
+    </div>
+  )
+}
+
 export function SettingsModal({ isOpen, onClose, draft, updateDraft, onSave }: SettingsModalProps) {
     if (!isOpen) return null
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-            <div className="w-full max-w-md rounded-3xl border border-white/10 bg-slate-900 p-6 shadow-2xl">
-                <div className="mb-6 flex items-center justify-between">
-                    <h3 className="text-lg font-semibold text-white">Alert Settings</h3>
-                    <button onClick={onClose} className="rounded-full p-1 text-slate-400 hover:bg-white/10 hover:text-white">
-                        <Lucide.X size={20} />
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(12px)' }}
+          onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
+        >
+            <div
+              className="w-full max-w-md rounded-2xl border border-white/[0.08] overflow-hidden shadow-2xl animate-fade-in-up"
+              style={{
+                background: 'linear-gradient(145deg, rgba(10,15,30,0.98) 0%, rgba(5,10,20,0.99) 100%)',
+                boxShadow: '0 0 0 1px rgba(255,255,255,0.05), 0 40px 80px rgba(0,0,0,0.6), 0 0 60px rgba(56,189,248,0.04)',
+              }}
+            >
+                {/* Modal header */}
+                <div className="flex items-center justify-between px-6 py-5 border-b border-white/[0.05]">
+                    <div className="flex items-center gap-3">
+                        <div className="relative">
+                            <div className="absolute inset-0 rounded-xl bg-sky-400/20 blur-lg" />
+                            <div className="relative flex h-8 w-8 items-center justify-center rounded-xl border border-sky-400/20 bg-sky-400/10">
+                                <Lucide.SlidersHorizontal size={14} className="text-sky-400" />
+                            </div>
+                        </div>
+                        <div>
+                            <h3 className="text-[15px] font-bold text-white leading-tight">Alert Settings</h3>
+                            <p className="text-[10px] text-slate-600">Configure telemetry thresholds</p>
+                        </div>
+                    </div>
+                    <button
+                      onClick={onClose}
+                      className="flex h-7 w-7 items-center justify-center rounded-lg border border-white/[0.06] bg-white/[0.03] text-slate-500 hover:bg-white/[0.08] hover:text-white transition-all"
+                    >
+                        <Lucide.X size={14} />
                     </button>
                 </div>
 
-                <div className="space-y-6">
-                    <div className="space-y-2">
-                        <label className="text-sm font-medium text-slate-300">Bandwidth Threshold (MB/s)</label>
-                        <div className="flex items-center gap-4">
-                            <input
-                                type="range"
-                                min="0.5"
-                                max="100"
-                                step="0.5"
-                                value={draft.thresholdMb}
-                                onChange={(e) => { updateDraft('thresholdMb', Number(e.target.value)) }}
-                                className="flex-1 accent-sky-500"
-                            />
-                            <span className="w-20 text-right text-sm font-mono text-sky-400">{draft.thresholdMb} MB/s</span>
-                        </div>
-                        <p className="text-xs text-slate-500">Alerts trigger when traffic exceeds {formatBytes(draft.thresholdMb * 1024 * 1024)}/s</p>
-                    </div>
+                {/* Body */}
+                <div className="px-6 py-5 space-y-6">
+                    <SliderRow
+                      label="Bandwidth Threshold"
+                      description={`Alerts trigger when traffic exceeds ${formatBytes(draft.thresholdMb * 1024 * 1024)}/s`}
+                      min={0.5}
+                      max={100}
+                      step={0.5}
+                      value={draft.thresholdMb}
+                      displayValue={`${draft.thresholdMb} MB/s`}
+                      accentColor="text-sky-400"
+                      onChange={(v) => updateDraft('thresholdMb', v)}
+                      icon={<Lucide.Gauge size={14} />}
+                    />
 
-                    <div className="space-y-2">
-                        <label className="text-sm font-medium text-slate-300">Alert Cooldown</label>
-                        <div className="flex items-center gap-4">
-                            <input
-                                type="range"
-                                min="5"
-                                max="3600"
-                                step="5"
-                                value={Math.round(draft.cooldown * 60)}
-                                onChange={(e) => { updateDraft('cooldown', Number(e.target.value) / 60) }}
-                                className="flex-1 accent-emerald-500"
-                            />
-                            <span className="w-20 text-right text-sm font-mono text-emerald-400">{formatMinutesDuration(draft.cooldown)}</span>
-                        </div>
-                        <p className="text-xs text-slate-500">Minimum time between consecutive notifications</p>
-                    </div>
+                    <SliderRow
+                      label="Alert Cooldown"
+                      description="Minimum time between consecutive notifications"
+                      min={5}
+                      max={3600}
+                      step={5}
+                      value={Math.round(draft.cooldown * 60)}
+                      displayValue={formatMinutesDuration(draft.cooldown)}
+                      accentColor="text-emerald-400"
+                      onChange={(v) => updateDraft('cooldown', v / 60)}
+                      icon={<Lucide.Timer size={14} />}
+                    />
 
-                    <div className="space-y-2">
-                        <label className="text-sm font-medium text-slate-300">Pause Duration</label>
-                        <div className="flex items-center gap-4">
-                            <input
-                                type="range"
-                                min="5"
-                                max="7200"
-                                step="5"
-                                value={Math.round(draft.pauseMinutes * 60)}
-                                onChange={(e) => { updateDraft('pauseMinutes', Number(e.target.value) / 60) }}
-                                className="flex-1 accent-amber-500"
-                            />
-                            <span className="w-20 text-right text-sm font-mono text-amber-400">{formatMinutesDuration(draft.pauseMinutes)}</span>
-                        </div>
-                        <p className="text-xs text-slate-500">How long to suspend telemetry when paused</p>
-                    </div>
+                    <SliderRow
+                      label="Pause Duration"
+                      description="How long to suspend telemetry when paused"
+                      min={5}
+                      max={7200}
+                      step={5}
+                      value={Math.round(draft.pauseMinutes * 60)}
+                      displayValue={formatMinutesDuration(draft.pauseMinutes)}
+                      accentColor="text-amber-400"
+                      onChange={(v) => updateDraft('pauseMinutes', v / 60)}
+                      icon={<Lucide.Clock size={14} />}
+                    />
                 </div>
 
-                <div className="mt-8 flex gap-3">
+                {/* Footer */}
+                <div className="flex gap-3 px-6 pb-6">
                     <button
                         onClick={onClose}
-                        className="flex-1 rounded-xl border border-white/10 bg-white/5 py-2.5 text-sm font-medium text-slate-300 hover:bg-white/10"
+                        className="flex-1 rounded-xl border border-white/[0.07] bg-white/[0.03] py-2.5 text-[13px] font-medium text-slate-400 hover:bg-white/[0.06] hover:text-white transition-all duration-150"
                     >
                         Cancel
                     </button>
                     <button
                         onClick={onSave}
-                        className="flex-1 rounded-xl bg-gradient-to-r from-sky-500 to-indigo-500 py-2.5 text-sm font-semibold text-white hover:from-sky-400 hover:to-indigo-400"
+                        className="flex-1 rounded-xl bg-gradient-to-r from-sky-500 to-indigo-600 py-2.5 text-[13px] font-bold text-white shadow-lg shadow-sky-500/20 hover:from-sky-400 hover:to-indigo-500 hover:shadow-sky-400/25 transition-all duration-150"
                     >
                         Save Changes
                     </button>

@@ -52,32 +52,45 @@ export function DashboardView({
   const health  = Math.max(0, 100 - Math.round((rxNow + txNow) / Math.max(settings.threshold, 1) * 100))
   const healthColor = health > 70 ? 'emerald' : health > 40 ? 'amber' : 'rose'
 
+  const usagePct = Math.min(((rxNow + txNow) / Math.max(settings.threshold, 1)) * 100, 100)
+
   return (
-    <div className="space-y-6">
-      {/* ── Hero ─────────────────────────────────────────────── */}
-      <section className="relative overflow-hidden rounded-2xl border border-white/5 bg-gradient-to-br from-sky-500/10 via-[#080c14] to-indigo-500/10 p-6">
-        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,rgba(56,189,248,0.12),transparent_55%)]" />
-        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_bottom_right,rgba(99,102,241,0.12),transparent_55%)]" />
+    <div className="space-y-5 animate-fade-in-up">
+
+      {/* ── Hero banner ───────────────────────────────────────── */}
+      <section className="relative overflow-hidden rounded-2xl p-6 border border-white/[0.06]"
+        style={{
+          background: 'linear-gradient(135deg, rgba(56,189,248,0.08) 0%, rgba(6,11,24,0.95) 50%, rgba(99,102,241,0.08) 100%)',
+          boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.04), 0 0 40px rgba(56,189,248,0.04)',
+        }}
+      >
+        {/* Decorative radial glows */}
+        <div className="pointer-events-none absolute inset-0">
+          <div className="absolute -top-12 -left-12 w-48 h-48 bg-sky-400/[0.08] rounded-full blur-3xl" />
+          <div className="absolute -bottom-12 -right-12 w-48 h-48 bg-indigo-500/[0.08] rounded-full blur-3xl" />
+        </div>
+
         <div className="relative flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <p className="mb-1 text-[10px] uppercase tracking-[0.4em] text-slate-500">NetMonitor Pro — Real-time</p>
-            <h1 className="text-2xl font-bold text-white">Live Bandwidth Intelligence</h1>
-            <p className="text-sm text-slate-400 mt-0.5">Monitor spikes · automate alerts · keep your connection honest</p>
+            <p className="mb-1.5 text-[9px] uppercase tracking-[0.35em] text-slate-600 font-semibold">NetMonitor Pro · Real-time</p>
+            <h1 className="text-xl font-bold text-white leading-tight">Live Bandwidth Intelligence</h1>
+            <p className="text-[12px] text-slate-500 mt-1">Monitor spikes · automate alerts · keep your connection honest</p>
           </div>
+
           <div className="flex gap-3">
-            <div className="rounded-xl border border-sky-400/20 bg-sky-400/5 px-4 py-3 text-right min-w-[110px]">
-              <p className="text-[10px] uppercase tracking-wider text-sky-500">Peak ↓</p>
-              <p className="text-xl font-bold text-sky-300">{formatBytes(maxSpikes.rx)}/s</p>
+            <div className="rounded-xl border border-sky-400/15 bg-sky-400/[0.06] px-4 py-3 text-right min-w-[100px]">
+              <p className="text-[9px] uppercase tracking-wider text-sky-600 font-semibold mb-1">Peak ↓</p>
+              <p className="text-lg font-bold text-sky-300 font-data">{formatBytes(maxSpikes.rx)}/s</p>
             </div>
-            <div className="rounded-xl border border-emerald-400/20 bg-emerald-400/5 px-4 py-3 text-right min-w-[110px]">
-              <p className="text-[10px] uppercase tracking-wider text-emerald-500">Peak ↑</p>
-              <p className="text-xl font-bold text-emerald-300">{formatBytes(maxSpikes.tx)}/s</p>
+            <div className="rounded-xl border border-emerald-400/15 bg-emerald-400/[0.06] px-4 py-3 text-right min-w-[100px]">
+              <p className="text-[9px] uppercase tracking-wider text-emerald-600 font-semibold mb-1">Peak ↑</p>
+              <p className="text-lg font-bold text-emerald-300 font-data">{formatBytes(maxSpikes.tx)}/s</p>
             </div>
           </div>
         </div>
       </section>
 
-      {/* ── Waveform Cards ───────────────────────────────────── */}
+      {/* ── Metric Cards ──────────────────────────────────────── */}
       <section className="grid grid-cols-2 gap-4 xl:grid-cols-4">
         <WaveformCard
           label="Download"
@@ -85,7 +98,7 @@ export function DashboardView({
           subLabel={`Avg ${formatBytes(averages.rx)}/s`}
           history={rxHistory}
           color="sky"
-          icon={<Lucide.ArrowDown size={14} />}
+          icon={<Lucide.ArrowDown size={13} />}
           threshold={settings.threshold}
         />
         <WaveformCard
@@ -94,7 +107,7 @@ export function DashboardView({
           subLabel={`Avg ${formatBytes(averages.tx)}/s`}
           history={txHistory}
           color="emerald"
-          icon={<Lucide.ArrowUp size={14} />}
+          icon={<Lucide.ArrowUp size={13} />}
           threshold={settings.threshold}
         />
         <WaveformCard
@@ -103,78 +116,120 @@ export function DashboardView({
           subLabel={`↓ ${formatBytes(sessionUsage.rx)}  ↑ ${formatBytes(sessionUsage.tx)}`}
           history={sessionHistory}
           color="violet"
-          icon={<Lucide.Database size={14} />}
+          icon={<Lucide.Database size={13} />}
         />
         <WaveformCard
           label="Health"
           value={`${health}%`}
-          subLabel="vs current threshold"
+          subLabel="vs threshold"
           history={healthHistory}
           color={healthColor}
-          icon={<Lucide.HeartPulse size={14} />}
+          icon={<Lucide.HeartPulse size={13} />}
           threshold={100}
         />
       </section>
 
-      {/* ── Rolling chart ────────────────────────────────────── */}
+      {/* ── Rolling chart ─────────────────────────────────────── */}
       <NetworkChart history={history} range={historyRange} onRangeChange={setHistoryRange} />
 
-      {/* ── Pulse Timeline ───────────────────────────────────── */}
+      {/* ── Alert timeline ────────────────────────────────────── */}
       <PulseTimeline alertLog={alertLog} />
 
-      {/* ── Bottom row ───────────────────────────────────────── */}
+      {/* ── Bottom row ────────────────────────────────────────── */}
       <section className="grid gap-4 lg:grid-cols-2">
+
         {/* Threshold tracker */}
-        <div className="rounded-2xl border border-white/5 bg-[#080c14]/60 p-5">
+        <div className="rounded-2xl border border-white/[0.06] bg-[#060b18]/80 p-5">
           <div className="mb-4 flex items-center justify-between">
-            <p className="text-sm font-semibold text-white">Live Threshold Tracker</p>
-            <button onClick={onOpenSettings} className="text-[11px] text-sky-400 hover:text-sky-300 transition-colors">Edit →</button>
-          </div>
-          <div className="flex items-center gap-4">
-            <div className="flex h-16 w-16 flex-col items-center justify-center rounded-xl border border-sky-400/20 bg-sky-400/5">
-              <p className="text-[9px] uppercase tracking-widest text-sky-500">Limit</p>
-              <p className="text-sm font-bold text-sky-300 leading-tight">{formatBytes(settings.threshold)}</p>
-              <p className="text-[9px] text-sky-500/70">/s</p>
-            </div>
-            <div className="flex-1 space-y-1.5">
-              <div className="h-1.5 rounded-full bg-white/5 overflow-hidden">
-                <div
-                  className="h-full rounded-full bg-gradient-to-r from-sky-400 to-indigo-400 transition-all duration-500"
-                  style={{ width: `${Math.min(((rxNow + txNow) / Math.max(settings.threshold, 1)) * 100, 100)}%` }}
-                />
+            <div className="flex items-center gap-2">
+              <div className="flex h-6 w-6 items-center justify-center rounded-lg border border-sky-400/20 bg-sky-400/10">
+                <Lucide.Gauge size={12} className="text-sky-400" />
               </div>
-              <p className="text-xs text-slate-500">
-                {formatBytes(rxNow + txNow)}/s of {formatBytes(settings.threshold)}/s
-              </p>
-              <p className="text-xs text-slate-600">Cooldown: {settings.cooldownMinutes}m · Last alert: {alertLog[0]?.time ?? 'none'}</p>
+              <p className="text-[13px] font-semibold text-white">Threshold Tracker</p>
+            </div>
+            <button
+              onClick={onOpenSettings}
+              className="text-[11px] text-sky-500 hover:text-sky-300 transition-colors flex items-center gap-1"
+            >
+              Edit <Lucide.ArrowRight size={10} />
+            </button>
+          </div>
+
+          <div className="space-y-3">
+            {/* Limit pill */}
+            <div className="flex items-center gap-3">
+              <div className="flex h-12 w-12 flex-col items-center justify-center rounded-xl border border-sky-400/15 bg-sky-400/[0.05] shrink-0">
+                <p className="text-[8px] uppercase tracking-wider text-sky-600">Limit</p>
+                <p className="text-[11px] font-bold text-sky-300 font-data leading-tight">{formatBytes(settings.threshold)}</p>
+                <p className="text-[8px] text-sky-600/70">/s</p>
+              </div>
+              <div className="flex-1 space-y-2">
+                {/* Bar */}
+                <div className="relative h-2 rounded-full bg-white/[0.04] overflow-hidden">
+                  <div
+                    className="h-full rounded-full transition-all duration-500"
+                    style={{
+                      width: `${usagePct}%`,
+                      background: usagePct > 90
+                        ? 'linear-gradient(90deg, #fb7185, #f43f5e)'
+                        : usagePct > 70
+                        ? 'linear-gradient(90deg, #fbbf24, #f59e0b)'
+                        : 'linear-gradient(90deg, #38bdf8, #818cf8)',
+                    }}
+                  />
+                  {/* Shimmer on bar */}
+                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent animate-[shimmer_2s_linear_infinite]" style={{ backgroundSize: '200% 100%' }} />
+                </div>
+                <p className="text-[11px] text-slate-500 font-data">
+                  {formatBytes(rxNow + txNow)}/s of {formatBytes(settings.threshold)}/s
+                </p>
+                <p className="text-[10px] text-slate-700">
+                  Cooldown: {settings.cooldownMinutes}m · Last alert: {alertLog[0]?.time ?? 'none'}
+                </p>
+              </div>
             </div>
           </div>
         </div>
 
         {/* Connection preview */}
-        <div className="rounded-2xl border border-white/5 bg-[#080c14]/60 p-5">
+        <div className="rounded-2xl border border-white/[0.06] bg-[#060b18]/80 p-5">
           <div className="mb-4 flex items-center justify-between">
-            <p className="text-sm font-semibold text-white">Active Connection Preview</p>
-            <span className="text-[11px] text-slate-500">See Connections tab →</span>
+            <div className="flex items-center gap-2">
+              <div className="flex h-6 w-6 items-center justify-center rounded-lg border border-emerald-400/20 bg-emerald-400/10">
+                <Lucide.Activity size={12} className="text-emerald-400" />
+              </div>
+              <p className="text-[13px] font-semibold text-white">Live Speeds</p>
+            </div>
+            <span className="text-[11px] text-slate-600">See Connections →</span>
           </div>
+
           <div className="grid grid-cols-2 gap-3">
-            <div className="rounded-xl border border-emerald-400/15 bg-emerald-400/5 px-3 py-2.5">
-              <p className="text-[10px] text-emerald-500 uppercase tracking-wider">Download now</p>
-              <p className="text-lg font-bold text-white">{formatBytes(rxNow)}/s</p>
+            <div className="rounded-xl border border-sky-400/10 bg-sky-400/[0.04] px-3 py-3">
+              <div className="flex items-center gap-1.5 mb-2">
+                <Lucide.ArrowDown size={10} className="text-sky-500" />
+                <p className="text-[9px] text-sky-600 uppercase tracking-wider font-semibold">Download</p>
+              </div>
+              <p className="text-[18px] font-bold text-white font-data">{formatBytes(rxNow)}/s</p>
             </div>
-            <div className="rounded-xl border border-sky-400/15 bg-sky-400/5 px-3 py-2.5">
-              <p className="text-[10px] text-sky-500 uppercase tracking-wider">Upload now</p>
-              <p className="text-lg font-bold text-white">{formatBytes(txNow)}/s</p>
+            <div className="rounded-xl border border-emerald-400/10 bg-emerald-400/[0.04] px-3 py-3">
+              <div className="flex items-center gap-1.5 mb-2">
+                <Lucide.ArrowUp size={10} className="text-emerald-500" />
+                <p className="text-[9px] text-emerald-600 uppercase tracking-wider font-semibold">Upload</p>
+              </div>
+              <p className="text-[18px] font-bold text-white font-data">{formatBytes(txNow)}/s</p>
             </div>
-            <div className="rounded-xl border border-violet-400/15 bg-violet-400/5 px-3 py-2.5 col-span-2">
-              <p className="text-[10px] text-violet-500 uppercase tracking-wider">Interface</p>
-              <p className="text-sm font-semibold text-white">{stats?.iface ?? '--'} <span className="text-slate-500 font-normal">— {stats?.operstate ?? 'unknown'}</span></p>
+            <div className="rounded-xl border border-white/[0.05] bg-white/[0.02] px-3 py-2.5 col-span-2">
+              <p className="text-[9px] text-slate-600 uppercase tracking-wider mb-1">Interface</p>
+              <p className="text-[13px] font-semibold text-white font-data">
+                {stats?.iface ?? '--'}
+                <span className="text-slate-600 font-normal ml-2">— {stats?.operstate ?? 'unknown'}</span>
+              </p>
             </div>
           </div>
         </div>
       </section>
 
-      {/* ── Process list ─────────────────────────────────────── */}
+      {/* ── Process list ──────────────────────────────────────── */}
       <ProcessList processes={processUsage} />
     </div>
   )
