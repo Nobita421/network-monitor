@@ -1,8 +1,6 @@
 import * as Lucide from 'lucide-react'
 import { formatCountdown } from '../../lib/utils'
-import type { HistoryPoint } from '../../types'
-
-type Tab = 'dashboard' | 'connections' | 'map' | 'history'
+import type { HistoryPoint, Tab } from '../../types'
 
 const TAB_META: Record<Tab, { label: string; sub: string; icon: React.ReactNode }> = {
   dashboard:   { label: 'Dashboard',   sub: 'Live telemetry',       icon: <Lucide.LayoutDashboard size={13} /> },

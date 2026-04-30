@@ -11,12 +11,13 @@ Electron + React + TypeScript desktop app for Windows network monitoring.
 - `pnpm test:strict` — Run vitest with 30s timeouts (use if tests timeout)
 - `pnpm typecheck` — `tsc --noEmit`
 - `pnpm lint` — ESLint on `src` and `electron` directories
+- `pnpm geoip:update` — Update GeoIP data (strict mode, may fail)
+- `pnpm geoip:update:best-effort` — Update GeoIP data (best effort, won't fail build)
 
-## Validation Order
-1. `pnpm typecheck`
-2. `pnpm lint`
-3. `pnpm test`
-4. `pnpm build` (or `pnpm build:no-geoip`)
+## CI Notes
+- CI runs on `feat/ui-ux-redesign`, `master` (push), and `master` (PRs) only
+- CI uses `--max-warnings 0` for ESLint, `pnpm lint` in dev does not
+- `pnpm test` is NOT run in CI (only typecheck + lint + build)
 
 ## Project Structure
 - Electron main: `electron/main.ts`

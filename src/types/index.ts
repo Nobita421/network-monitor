@@ -1,6 +1,9 @@
 export interface NetworkStat {
   rx_sec: number
   tx_sec: number
+  rx_bytes?: number
+  tx_bytes?: number
+  sampledAt?: number
   iface: string
   operstate: string
   ping?: number
@@ -26,6 +29,7 @@ export interface ProcessUsageEntry {
   activityScore: number
   tcp: number
   udp: number
+  isEstimated?: boolean
 }
 
 export interface AlertLogEntry {
@@ -34,7 +38,7 @@ export interface AlertLogEntry {
   rate: string
 }
 
-export type HistoryPoint = { time: string; rx: number; tx: number }
+export type HistoryPoint = { time: string; isoTime: string; rx: number; tx: number }
 export type HistoryRange = '30s' | '60s' | '5m'
 
 export type Settings = {
@@ -42,3 +46,6 @@ export type Settings = {
   cooldownMinutes: number
   pauseMinutes: number
 }
+
+/** Centralized Tab type — used across App, Header, Sidebar, CommandPalette */
+export type Tab = 'dashboard' | 'connections' | 'map' | 'history'

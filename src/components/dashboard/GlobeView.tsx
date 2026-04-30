@@ -6,6 +6,7 @@ import { ConfirmationModal } from '../ui/ConfirmationModal'
 import { Drawer } from '../ui/Drawer'
 import type { Connection } from '../../types'
 import { useGeoLocation } from '../../hooks/useGeoLocation'
+import { isMappableConnection, normalizeIpAddress } from '../../lib/network'
 
 interface GlobeViewProps {
     connections: Connection[]
@@ -63,6 +64,12 @@ interface GlobeArc {
     animateTime: number;
 }
 
+interface GlobeOrigin {
+    lat: number;
+    lon: number;
+    label: string;
+}
+
 function isGlobeHexBin(value: unknown): value is GlobeHexBin {
     if (typeof value !== 'object' || value === null) return false
     const candidate = value as Partial<GlobeHexBin>
@@ -80,9 +87,9 @@ function toFiniteNumber(value: unknown): number | null {
 
 // Stable renderer config — defined outside component to avoid object recreation on every render
 const RENDERER_CONFIG = {
-    powerPreference: 'high-performance' as const,
+    powerPreference: 'low-power' as const,
     antialias: false,   // disable MSAA to reduce GPU load
-    alpha: true,
+    alpha: false,
     stencil: false,
     depth: true,
 } as const
@@ -90,12 +97,34 @@ const RENDERER_CONFIG = {
 const MAX_ARCS = 50
 const MAX_RINGS = 50
 
+const TIMEZONE_ORIGINS: { match: RegExp; origin: GlobeOrigin }[] = [
+    { match: /^Asia\/(Calcutta|Kolkata)$/i, origin: { lat: 20.5937, lon: 78.9629, label: 'India timezone estimate' } },
+    { match: /^Asia\//i, origin: { lat: 1.3521, lon: 103.8198, label: 'Asia timezone estimate' } },
+    { match: /^Europe\//i, origin: { lat: 50.1109, lon: 8.6821, label: 'Europe timezone estimate' } },
+    { match: /^America\/(New_York|Detroit|Toronto|Montreal|Indiana|Kentucky)/i, origin: { lat: 39.8283, lon: -98.5795, label: 'North America timezone estimate' } },
+    { match: /^America\//i, origin: { lat: 39.8283, lon: -98.5795, label: 'Americas timezone estimate' } },
+    { match: /^Australia\//i, origin: { lat: -25.2744, lon: 133.7751, label: 'Australia timezone estimate' } },
+]
+
+function getTimezoneOrigin(): GlobeOrigin {
+    const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || ''
+    const matched = TIMEZONE_ORIGINS.find(({ match }) => match.test(timezone))
+    return matched?.origin ?? { lat: 0, lon: 0, label: 'Timezone unavailable' }
+}
+
+function getVisibleArcStart(origin: GlobeOrigin, endLat: number, endLng: number) {
+    const nearSamePoint = Math.abs(origin.lat - endLat) < 0.25 && Math.abs(origin.lon - endLng) < 0.25
+    if (!nearSamePoint) return { lat: origin.lat, lon: origin.lon }
+    return { lat: origin.lat, lon: ((origin.lon + 12 + 540) % 360) - 180 }
+}
+
 const MemoizedGlobe = memo(Globe)
 
 export function GlobeView({ connections }: GlobeViewProps) {
     const [dimensions, setDimensions] = useState({ width: 800, height: 600 })
     const [isVisible, setIsVisible] = useState(document.visibilityState === 'visible')
     const globeRef = useRef<GlobeMethods | undefined>(undefined)
+    const containerRef = useRef<HTMLDivElement | null>(null)
 
     const [hoveredPoint, setHoveredPoint] = useState<GlobePoint | null>(null)
     const [selectedHex, setSelectedHex] = useState<GlobePoint | null>(null)
@@ -111,23 +140,25 @@ export function GlobeView({ connections }: GlobeViewProps) {
         return () => document.removeEventListener('visibilitychange', handleVisibilityChange)
     }, [])
 
-    const uniqueIps = useMemo(() => {
-        const ips = new Set<string>()
-        connections.forEach(c => {
-            if (c.peerAddress && c.peerAddress !== '127.0.0.1' && c.peerAddress !== '::1') {
-                ips.add(c.peerAddress)
-            }
-        })
-        return Array.from(ips)
+    const mappableConnections = useMemo(() => {
+        return connections.filter(isMappableConnection)
     }, [connections])
 
-    const { locations, myLocation } = useGeoLocation(uniqueIps)
+    const uniqueIps = useMemo(() => {
+        const ips = new Set<string>()
+        mappableConnections.forEach(c => {
+            ips.add(normalizeIpAddress(c.peerAddress))
+        })
+        return Array.from(ips)
+    }, [mappableConnections])
+
+    const { locations, isLoading } = useGeoLocation(uniqueIps)
 
     const filteredConnections = useMemo(() => {
-        if (!filterProcess) return connections
+        if (!filterProcess) return mappableConnections
         const q = filterProcess.toLowerCase()
-        return connections.filter(c => (c.process || '').toLowerCase().includes(q))
-    }, [connections, filterProcess])
+        return mappableConnections.filter(c => (c.process || '').toLowerCase().includes(q))
+    }, [mappableConnections, filterProcess])
 
     const uniqueLocations = useMemo(() => {
         const locMap = new Map<string, {
@@ -139,8 +170,8 @@ export function GlobeView({ connections }: GlobeViewProps) {
         const ipToGeo = new Map(locations.map(l => [l.ip, l]))
 
         filteredConnections.forEach(conn => {
-            if (!conn.peerAddress || conn.peerAddress === '127.0.0.1' || conn.peerAddress === '::1') return
-            const geo = ipToGeo.get(conn.peerAddress)
+            const peerAddress = normalizeIpAddress(conn.peerAddress)
+            const geo = ipToGeo.get(peerAddress)
             if (!geo) return
 
             const lat = toFiniteNumber(geo.lat)
@@ -153,13 +184,13 @@ export function GlobeView({ connections }: GlobeViewProps) {
                     lat, lon,
                     city: geo.city, country: geo.country,
                     isp: geo.isp || 'Unknown ISP', asn: geo.asn || '',
-                    ips: new Set([conn.peerAddress]),
+                    ips: new Set([peerAddress]),
                     processes: new Map([[conn.process || 'System', 1]]),
                     totalConns: 1, rawData: [conn]
                 })
             } else {
                 const entry = locMap.get(key)!
-                entry.ips.add(conn.peerAddress)
+                entry.ips.add(peerAddress)
                 const proc = conn.process || 'System'
                 entry.processes.set(proc, (entry.processes.get(proc) || 0) + 1)
                 entry.totalConns += 1
@@ -220,32 +251,40 @@ export function GlobeView({ connections }: GlobeViewProps) {
         return () => clearTimeout(handler)
     }, [uniqueLocations])
 
+    // Use a stable home point: if we have a myLocation (centroid), use it,
+    // otherwise fall back to a sensible default so arcs always render.
+    // The home point represents "us" — start of every arc.
+    const homePoint = useMemo(() => getTimezoneOrigin(), [])
+
     const arcsData = useMemo<GlobeArc[]>(() => {
-        if (!myLocation) return []
+        if (uniqueLocations.length === 0) return []
 
         // Cap to MAX_ARCS — sort by connection count desc so most active show first
         const sorted = [...uniqueLocations].sort((a, b) => b.totalConns - a.totalConns).slice(0, MAX_ARCS)
 
         return sorted.map((loc) => {
             const isHeavy = loc.totalConns > 5
-            const seed = Math.abs(Math.round(loc.lat * 1000) + Math.round(loc.lon * 1000) + loc.totalConns)
-            const isUpload = seed % 3 === 0
+            // Stable direction: high-connection locs are downloads, low are uploads
+            const isUpload = loc.totalConns <= 2
+            const start = getVisibleArcStart(homePoint, loc.lat, loc.lon)
 
             return {
-                startLat: isUpload ? myLocation.lat : loc.lat,
-                startLng: isUpload ? myLocation.lon : loc.lon,
-                endLat: isUpload ? loc.lat : myLocation.lat,
-                endLng: isUpload ? loc.lon : myLocation.lon,
-                color: isUpload ? ['#f59e0b', '#ef4444'] : ['#10b981', '#3b82f6'],
+                startLat: start.lat,
+                startLng: start.lon,
+                endLat: loc.lat,
+                endLng: loc.lon,
+                color: isUpload
+                    ? ['rgba(251,191,36,0.9)', 'rgba(239,68,68,0.9)']
+                    : ['rgba(16,185,129,0.9)', 'rgba(59,130,246,0.9)'],
                 dashLength: isHeavy ? 0.55 : 0.25,
                 dashGap: isHeavy ? 0.2 : 0.35,
                 animateTime: isHeavy ? 1200 : 2600,
             }
         })
-    }, [myLocation, uniqueLocations])
+    }, [homePoint, uniqueLocations])
 
     const labelsData = useMemo(() => {
-        return uniqueLocations
+        return [...uniqueLocations]
             .sort((a, b) => b.totalConns - a.totalConns)
             .slice(0, 5)
             .map(loc => {
@@ -253,6 +292,21 @@ export function GlobeView({ connections }: GlobeViewProps) {
                 return { lat: loc.lat, lng: loc.lon, text: topProc, size: 1.2 }
             })
     }, [uniqueLocations])
+
+    const originPoint = useMemo(() => [{
+        lat: homePoint.lat,
+        lng: homePoint.lon,
+        label: homePoint.label,
+    }], [homePoint])
+
+    const diagnostics = useMemo(() => ({
+        rawConnections: connections.length,
+        mappableConnections: mappableConnections.length,
+        filteredConnections: filteredConnections.length,
+        uniqueIps: uniqueIps.length,
+        geoResolved: locations.length,
+        activeArcs: arcsData.length,
+    }), [connections.length, mappableConnections.length, filteredConnections.length, uniqueIps.length, locations.length, arcsData.length])
 
     const handleHexClick = useCallback((hex: unknown) => {
         if (!isGlobeHexBin(hex) || !globeRef.current || hex.points.length === 0) return
@@ -290,7 +344,11 @@ export function GlobeView({ connections }: GlobeViewProps) {
         if (!pid) return
         try {
             const success = await window.desktop.killProcess(pid)
-            if (!success) console.error(`Failed to kill ${pid}`)
+            if (!success) {
+                console.error(`Failed to kill ${pid}`)
+                return
+            }
+            setProcessToKill(null)
         } catch (e) {
             console.error('IPC Kill Error', e)
         }
@@ -301,27 +359,38 @@ export function GlobeView({ connections }: GlobeViewProps) {
         setProcessToKill({ pid: connection.pid, name: connection.process || 'System' })
     }, [])
 
+    const handleGlobeReady = useCallback(() => {
+        const globe = globeRef.current
+        if (!globe) return
+
+        globe.renderer().setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.25))
+
+        const controls = globe.controls()
+        controls.autoRotate = false
+        controls.enableDamping = false
+    }, [])
+
     useEffect(() => {
-        const container = document.getElementById('globe-container')
+        const container = containerRef.current
         if (!container) return
 
-        // Initial size
-        setDimensions({ width: container.clientWidth, height: container.clientHeight })
-
-        // Debounced resize
         let rafId: number | null = null
-        const handleResize = () => {
+        const updateSize = () => {
             if (rafId !== null) cancelAnimationFrame(rafId)
             rafId = requestAnimationFrame(() => {
                 rafId = null
-                const c = document.getElementById('globe-container')
-                if (c) setDimensions({ width: c.clientWidth, height: c.clientHeight })
+                const width = Math.max(container.clientWidth, 320)
+                const height = Math.max(container.clientHeight, 360)
+                setDimensions({ width, height })
             })
         }
 
-        window.addEventListener('resize', handleResize)
+        updateSize()
+        const resizeObserver = new ResizeObserver(updateSize)
+        resizeObserver.observe(container)
+
         return () => {
-            window.removeEventListener('resize', handleResize)
+            resizeObserver.disconnect()
             if (rafId !== null) cancelAnimationFrame(rafId)
         }
     }, [])
@@ -345,17 +414,21 @@ export function GlobeView({ connections }: GlobeViewProps) {
                 />
             </div>
 
-            <div id="globe-container" className="flex-1 relative bg-slate-950/50 rounded-b-3xl overflow-hidden">
+            <div ref={containerRef} className="flex-1 min-h-[520px] relative bg-slate-950/50 rounded-b-3xl overflow-hidden">
                 <MemoizedGlobe
                     ref={globeRef}
                     width={dimensions.width}
                     height={dimensions.height}
                     globeImageUrl="/assets/earth-night.jpg"
+                    onGlobeReady={handleGlobeReady}
+                    globeCurvatureResolution={6}
 
                     hexBinPointsData={hexData}
                     hexBinPointWeight="weight"
                     hexBinResolution={3}
                     hexMargin={0.2}
+                    hexTopCurvatureResolution={8}
+                    hexTransitionDuration={300}
                     hexTopColor={() => '#10b981'}
                     hexSideColor={() => '#064e3b'}
                     hexBinMerge={true}
@@ -391,16 +464,31 @@ export function GlobeView({ connections }: GlobeViewProps) {
 
                     ringsData={rings}
                     ringColor="color"
+                    ringResolution={24}
                     ringMaxRadius="maxR"
                     ringPropagationSpeed="propagationSpeed"
                     ringRepeatPeriod="repeatPeriod"
 
+                    pointsData={originPoint}
+                    pointLat="lat"
+                    pointLng="lng"
+                    pointAltitude={0.02}
+                    pointRadius={0.35}
+                    pointResolution={12}
+                    pointsTransitionDuration={0}
+                    pointColor={() => '#fbbf24'}
+                    pointLabel="label"
+
                     arcsData={arcsData}
-                    arcColor="color"
+                    arcColor={(arc: object) => (arc as GlobeArc).color}
                     arcDashLength="dashLength"
                     arcDashGap="dashGap"
                     arcDashAnimateTime="animateTime"
+                    arcAltitude={0.3}
                     arcStroke={0.5}
+                    arcCurveResolution={24}
+                    arcCircularResolution={4}
+                    arcsTransitionDuration={300}
 
                     atmosphereColor="#3b82f6"
                     atmosphereAltitude={0.15}
@@ -414,7 +502,7 @@ export function GlobeView({ connections }: GlobeViewProps) {
                     labelColor={() => 'rgba(255, 255, 255, 0.75)'}
                     labelResolution={2}
 
-                    backgroundColor="rgba(0,0,0,0)"
+                    backgroundColor="rgba(2,6,23,1)"
                     rendererConfig={RENDERER_CONFIG}
                 />
 
@@ -465,14 +553,66 @@ export function GlobeView({ connections }: GlobeViewProps) {
                     </div>
                 )}
 
+                {/* Empty / loading state overlay */}
+                {connections.length > 0 && uniqueLocations.length === 0 && (
+                    <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                        <div className="flex flex-col items-center gap-3 rounded-2xl border border-white/[0.06] bg-slate-950/80 px-8 py-6 backdrop-blur-md text-center">
+                            {isLoading ? (
+                                <>
+                                    <div className="h-6 w-6 animate-spin rounded-full border-2 border-sky-400/20 border-t-sky-400" />
+                                    <p className="text-sm font-semibold text-white">Resolving IP locations…</p>
+                                    <p className="text-xs text-slate-500">
+                                        {uniqueIps.length} IP{uniqueIps.length !== 1 ? 's' : ''} pending geo-lookup
+                                    </p>
+                                </>
+                            ) : (
+                                <>
+                                    <span className="text-2xl">📡</span>
+                                    <p className="text-sm font-semibold text-white">No mappable connections</p>
+                                    <p className="text-xs text-slate-500">
+                                        {uniqueIps.length === 0
+                                            ? 'No active public peer connections are available to map.'
+                                            : 'Geo-lookup returned no results for the active IPs.'}
+                                    </p>
+                                </>
+                            )}
+                        </div>
+                    </div>
+                )}
+
                 <div className="absolute bottom-4 left-4 flex gap-4 pointer-events-none">
                     <div className="bg-slate-900/80 p-3 rounded-lg backdrop-blur border border-slate-700/50">
                         <p className="text-xs text-slate-400">Active Locations</p>
                         <p className="text-xl font-bold text-emerald-400">{uniqueLocations.length}</p>
                     </div>
                     <div className="bg-slate-900/80 p-3 rounded-lg backdrop-blur border border-slate-700/50">
-                        <p className="text-xs text-slate-400">Total Connections</p>
-                        <p className="text-xl font-bold text-sky-400">{filteredConnections.length}</p>
+                        <p className="text-xs text-slate-400">Mappable</p>
+                        <p className="text-xl font-bold text-sky-400">{diagnostics.filteredConnections}</p>
+                    </div>
+                    <div className="bg-slate-900/80 p-3 rounded-lg backdrop-blur border border-slate-700/50">
+                        <p className="text-xs text-slate-400">Geo Hits</p>
+                        <p className="text-xl font-bold text-amber-400">{diagnostics.geoResolved}/{diagnostics.uniqueIps}</p>
+                    </div>
+                    {arcsData.length > 0 && (
+                        <div className="bg-slate-900/80 p-3 rounded-lg backdrop-blur border border-slate-700/50">
+                            <p className="text-xs text-slate-400">Active Arcs</p>
+                            <p className="text-xl font-bold text-violet-400">{arcsData.length}</p>
+                        </div>
+                    )}
+                </div>
+
+                <div className="absolute bottom-4 right-4 hidden max-w-[220px] gap-2 rounded-lg border border-slate-700/50 bg-slate-900/80 p-3 text-[10px] text-slate-400 backdrop-blur lg:grid">
+                    <div className="flex justify-between gap-4">
+                        <span>Raw sockets</span>
+                        <span className="font-mono text-slate-200">{diagnostics.rawConnections}</span>
+                    </div>
+                    <div className="flex justify-between gap-4">
+                        <span>Public peers</span>
+                        <span className="font-mono text-slate-200">{diagnostics.mappableConnections}</span>
+                    </div>
+                    <div className="flex justify-between gap-4">
+                        <span>Origin</span>
+                        <span className="truncate text-right text-slate-200">{homePoint.label}</span>
                     </div>
                 </div>
             </div>

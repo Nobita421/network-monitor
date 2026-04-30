@@ -1,14 +1,12 @@
 import * as Lucide from 'lucide-react'
-import type { NetworkStat } from '../../types'
+import { useEffect, useState } from 'react'
+import type { NetworkStat, Tab } from '../../types'
 import { formatDuration } from '../../lib/utils'
-
-type Tab = 'dashboard' | 'connections' | 'map' | 'history'
 
 interface SidebarProps {
   activeTab: Tab
   setActiveTab: (tab: Tab) => void
   stats: NetworkStat | null
-  elapsedSeconds: number
 }
 
 const NAV = [
@@ -25,8 +23,14 @@ const COLOR_MAP = {
   amber:   { active: 'text-amber-300',   glow: 'shadow-amber-400/20',   bar: 'bg-amber-400',   bg: 'bg-amber-400/10',   ring: 'border-amber-400/30',   dot: 'bg-amber-400'   },
 }
 
-export function Sidebar({ activeTab, setActiveTab, stats, elapsedSeconds }: SidebarProps) {
+export function Sidebar({ activeTab, setActiveTab, stats }: SidebarProps) {
+  const [elapsedSeconds, setElapsedSeconds] = useState(0)
   const isUp = stats?.operstate === 'up'
+
+  useEffect(() => {
+    const id = window.setInterval(() => { setElapsedSeconds((seconds) => seconds + 1) }, 1000)
+    return () => { window.clearInterval(id) }
+  }, [])
 
   return (
     <aside className="hidden md:flex flex-col w-60 xl:w-64 border-r border-white/[0.06] bg-[#060b18]/95 backdrop-blur-2xl">
@@ -35,7 +39,7 @@ export function Sidebar({ activeTab, setActiveTab, stats, elapsedSeconds }: Side
       <div className="flex items-center gap-3.5 px-5 py-5 border-b border-white/[0.06]">
         <div className="relative shrink-0">
           {/* Glow ring */}
-          <div className="absolute inset-0 rounded-xl bg-sky-400/25 blur-lg animate-glow-pulse" />
+          <div className="absolute inset-0 rounded-xl bg-sky-400/25 blur-lg opacity-80" />
           <div className="relative flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-sky-400 via-sky-500 to-indigo-600 shadow-lg shadow-sky-500/30">
             <Lucide.Wifi size={16} className="text-white" strokeWidth={2.5} />
           </div>
@@ -49,7 +53,6 @@ export function Sidebar({ activeTab, setActiveTab, stats, elapsedSeconds }: Side
         {/* Live indicator */}
         <div className="ml-auto flex items-center gap-1">
           <span className="relative flex h-2 w-2">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
             <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-400" />
           </span>
         </div>
@@ -105,7 +108,7 @@ export function Sidebar({ activeTab, setActiveTab, stats, elapsedSeconds }: Side
         <div className="flex items-center justify-between px-4 py-2.5 border-b border-white/[0.05]">
           <span className="text-[9px] uppercase tracking-[0.25em] text-slate-600 font-semibold">Network</span>
           <span className={`flex items-center gap-1.5 text-[10px] font-semibold ${isUp ? 'text-emerald-400' : 'text-red-400'}`}>
-            <span className={`h-1.5 w-1.5 rounded-full ${isUp ? 'bg-emerald-400 animate-pulse' : 'bg-red-400'}`} />
+            <span className={`h-1.5 w-1.5 rounded-full ${isUp ? 'bg-emerald-400' : 'bg-red-400'}`} />
             {isUp ? 'Online' : 'Offline'}
           </span>
         </div>

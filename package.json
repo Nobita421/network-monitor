@@ -19,7 +19,11 @@
   },
   "build": {
     "directories": {
-      "output": "release"
+      "output": "release",
+      "buildResources": "public"
+    },
+    "win": {
+      "icon": "icon.ico"
     },
     "extraResources": [
       {

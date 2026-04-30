@@ -63,7 +63,7 @@ export function PulseTimeline({ alertLog }: PulseTimelineProps) {
 
         <div className="flex items-center gap-2">
           <span className="flex items-center gap-1.5 rounded-lg border border-emerald-400/15 bg-emerald-400/[0.06] px-2.5 py-1 text-[10px] font-semibold text-emerald-400">
-            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
             Live
           </span>
           <span className="rounded-lg border border-white/[0.08] bg-white/[0.03] px-2.5 py-1 text-[10px] text-slate-500 font-medium">

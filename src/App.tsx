@@ -4,14 +4,19 @@ import { SettingsModal } from './components/dashboard/SettingsModal'
 import { Header } from './components/layout/Header'
 import { Sidebar } from './components/layout/Sidebar'
 import { CommandPalette } from './components/ui/CommandPalette'
+import { ErrorBoundary } from './components/ui/ErrorBoundary'
+import { ToastContainer } from './components/ui/Toast'
 import { useNetworkData } from './hooks/useNetworkData'
 import { useSettings } from './hooks/useSettings'
-import type { HistoryRange } from './types'
+import { isDesktopAvailable } from './lib/ipc'
+import type { HistoryRange, Tab } from './types'
 
 const ConnectionsView = lazy(async () => ({ default: (await import('./components/dashboard/ConnectionsView')).ConnectionsView }))
-const GlobeView = lazy(async () => ({ default: (await import('./components/dashboard/GlobeView')).GlobeView }))
-const HistoryView = lazy(async () => ({ default: (await import('./components/dashboard/HistoryView')).HistoryView }))
-const OverlayView = lazy(async () => ({ default: (await import('./components/overlay/OverlayView')).OverlayView }))
+const GlobeView       = lazy(async () => ({ default: (await import('./components/dashboard/GlobeView')).GlobeView }))
+const HistoryView     = lazy(async () => ({ default: (await import('./components/dashboard/HistoryView')).HistoryView }))
+const OverlayView     = lazy(async () => ({ default: (await import('./components/overlay/OverlayView')).OverlayView }))
+
+// ─── Fallbacks ────────────────────────────────────────────────────────────────
 
 function ViewFallback() {
   return (
@@ -24,10 +29,28 @@ function ViewFallback() {
   )
 }
 
+function DesktopUnavailable() {
+  return (
+    <div className="flex min-h-screen flex-col items-center justify-center bg-[#030712] text-center px-6">
+      <div className="relative mb-6">
+        <div className="absolute inset-0 rounded-full bg-amber-500/20 blur-2xl" />
+        <div className="relative flex h-16 w-16 items-center justify-center rounded-2xl border border-amber-500/30 bg-amber-500/10">
+          <span className="text-2xl">🖥️</span>
+        </div>
+      </div>
+      <h1 className="mb-2 text-xl font-bold text-white">Desktop bridge unavailable</h1>
+      <p className="max-w-sm text-sm text-slate-400">
+        NetMonitor Pro requires the Electron desktop environment. Please run the app with{' '}
+        <code className="rounded bg-white/[0.06] px-1 py-0.5 text-xs text-sky-300">pnpm dev</code>.
+      </p>
+    </div>
+  )
+}
+
+// ─── Overlay shell ────────────────────────────────────────────────────────────
+
 function OverlayShell() {
-  useEffect(() => {
-    document.body.style.backgroundColor = 'transparent'
-  }, [])
+  useEffect(() => { document.body.style.backgroundColor = 'transparent' }, [])
   return (
     <Suspense fallback={<ViewFallback />}>
       <OverlayView />
@@ -35,17 +58,19 @@ function OverlayShell() {
   )
 }
 
+// ─── Main shell ───────────────────────────────────────────────────────────────
+
 function MainShell() {
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'connections' | 'map' | 'history'>('dashboard')
-  const [historyRange, setHistoryRange] = useState<HistoryRange>('60s')
-  const [lastExportTime, setLastExportTime] = useState<string | null>(null)
-  const [cmdOpen, setCmdOpen] = useState(false)
+  const [activeTab,       setActiveTab]       = useState<Tab>('dashboard')
+  const [historyRange,    setHistoryRange]    = useState<HistoryRange>('60s')
+  const [lastExportTime,  setLastExportTime]  = useState<string | null>(null)
+  const [cmdOpen,         setCmdOpen]         = useState(false)
 
   const { settings, isModalOpen, setIsModalOpen, draft, updateDraft, saveSettings } = useSettings()
 
   const {
     stats, history, connections, processUsage, sessionUsage,
-    maxSpikes, alertLog, elapsedSeconds, alertIndicator,
+    maxSpikes, alertLog, alertIndicator,
     telemetryPaused, pauseCountdown, toggleTelemetry,
   } = useNetworkData(settings)
 
@@ -54,7 +79,7 @@ function MainShell() {
     const handler = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
         e.preventDefault()
-        setCmdOpen(prev => !prev)
+        setCmdOpen((prev) => !prev)
       }
     }
     window.addEventListener('keydown', handler)
@@ -63,13 +88,14 @@ function MainShell() {
 
   const handleExportHistory = useCallback(() => {
     if (!history.length) return
-    const header = 'timestamp,download_bytes_per_sec,upload_bytes_per_sec'
-    const rows = history.map(p => `${p.time},${p.rx},${p.tx}`)
-    const csv = [header, ...rows].join('\n')
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
-    const url = URL.createObjectURL(blob)
-    const link = document.createElement('a')
-    link.href = url
+    // Use ISO timestamps for machine-readable CSV
+    const header = 'timestamp_iso,download_bytes_per_sec,upload_bytes_per_sec'
+    const rows   = history.map((p) => `${p.isoTime ?? p.time},${p.rx},${p.tx}`)
+    const csv    = [header, ...rows].join('\n')
+    const blob   = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+    const url    = URL.createObjectURL(blob)
+    const link   = document.createElement('a')
+    link.href    = url
     link.download = `netmonitor-history-${new Date().toISOString().replace(/[:]/g, '-')}.csv`
     document.body.appendChild(link)
     link.click()
@@ -78,7 +104,7 @@ function MainShell() {
     setLastExportTime(new Date().toLocaleTimeString())
   }, [history])
 
-  const handleTabChange = useCallback((tab: 'dashboard' | 'connections' | 'map' | 'history') => {
+  const handleTabChange = useCallback((tab: Tab) => {
     startTransition(() => setActiveTab(tab))
   }, [])
 
@@ -100,7 +126,7 @@ function MainShell() {
       </div>
 
       <div className="relative z-10 flex h-screen overflow-hidden">
-        <Sidebar activeTab={activeTab} setActiveTab={handleTabChange} stats={stats} elapsedSeconds={elapsedSeconds} />
+        <Sidebar activeTab={activeTab} setActiveTab={handleTabChange} stats={stats} />
 
         <div className="flex min-w-0 flex-1 flex-col">
           <Header
@@ -150,7 +176,9 @@ function MainShell() {
                 )}
                 {activeTab === 'map' && (
                   <Suspense fallback={<ViewFallback />}>
-                    <GlobeView connections={connections} />
+                    <div className="h-[calc(100vh-7rem)] min-h-[560px]">
+                      <GlobeView connections={connections} />
+                    </div>
                   </Suspense>
                 )}
                 {activeTab === 'history' && (
@@ -183,13 +211,23 @@ function MainShell() {
         telemetryPaused={telemetryPaused}
         hasHistory={history.length > 0}
       />
+
+      {/* Toast notification stack */}
+      <ToastContainer />
     </div>
   )
 }
 
+// ─── Root ─────────────────────────────────────────────────────────────────────
+
 function App() {
+  if (!isDesktopAvailable()) return <DesktopUnavailable />
   const isOverlay = window.location.hash === '#/overlay' || window.location.hash === '#overlay'
-  return isOverlay ? <OverlayShell /> : <MainShell />
+  return (
+    <ErrorBoundary>
+      {isOverlay ? <OverlayShell /> : <MainShell />}
+    </ErrorBoundary>
+  )
 }
 
 export default App

@@ -30,7 +30,7 @@ export const loadSettings = (): Settings => {
   }
 }
 
-export const loadStoredNumber = (key: string) => {
+export const loadStoredNumber = (key: string): number | null => {
   if (typeof window === 'undefined') return null
   const raw = localStorage.getItem(key)
   if (!raw) return null
@@ -64,18 +64,15 @@ export const formatCountdown = (seconds: number) => {
   return `${remaining}s`
 }
 
-export const progressWidthClass = (ratio: number) => {
-  if (ratio >= 0.95) return 'w-[98%]'
-  if (ratio >= 0.8) return 'w-[90%]'
-  if (ratio >= 0.6) return 'w-[75%]'
-  if (ratio >= 0.4) return 'w-[55%]'
-  if (ratio >= 0.2) return 'w-[35%]'
-  return 'w-[18%]'
-}
-
 export function formatMinutesDuration(minutes: number) {
   if (minutes < 1) {
     return `${Math.round(minutes * 60)} sec`
   }
   return `${Number(minutes).toFixed(1).replace(/\.0$/, '')} min`
+}
+
+/** Platform-aware keyboard shortcut label */
+export function getShortcutLabel(key: string) {
+  const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPod|iPad/.test(navigator.platform)
+  return isMac ? `⌘${key}` : `Ctrl+${key}`
 }

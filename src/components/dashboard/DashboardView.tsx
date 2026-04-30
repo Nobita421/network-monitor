@@ -178,7 +178,7 @@ export function DashboardView({
                     }}
                   />
                   {/* Shimmer on bar */}
-                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent animate-[shimmer_2s_linear_infinite]" style={{ backgroundSize: '200% 100%' }} />
+                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent opacity-50" />
                 </div>
                 <p className="text-[11px] text-slate-500 font-data">
                   {formatBytes(rxNow + txNow)}/s of {formatBytes(settings.threshold)}/s

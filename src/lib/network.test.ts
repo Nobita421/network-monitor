@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import { aggregateTrafficStats, buildProcessUsage, getHistorySampleStep, isPrivateOrLocalIp } from './network'
+import {
+  aggregateTrafficStats,
+  buildProcessUsage,
+  getHistorySampleStep,
+  isMappableConnection,
+  isPrivateOrLocalIp,
+  isPublicRoutableIp,
+} from './network'
 import type { Connection } from '../types'
 
 describe('aggregateTrafficStats', () => {
@@ -101,6 +108,44 @@ describe('isPrivateOrLocalIp', () => {
   it('leaves public addresses alone', () => {
     expect(isPrivateOrLocalIp('8.8.8.8')).toBe(false)
     expect(isPrivateOrLocalIp('172.32.0.1')).toBe(false)
+  })
+})
+
+describe('isPublicRoutableIp', () => {
+  it('rejects unspecified, private, link-local, carrier-grade NAT, and documentation ranges', () => {
+    expect(isPublicRoutableIp('0.0.0.0')).toBe(false)
+    expect(isPublicRoutableIp('192.168.1.1')).toBe(false)
+    expect(isPublicRoutableIp('100.64.1.2')).toBe(false)
+    expect(isPublicRoutableIp('169.254.10.20')).toBe(false)
+    expect(isPublicRoutableIp('2001:db8::1')).toBe(false)
+  })
+
+  it('accepts public IPv4 and IPv6 addresses', () => {
+    expect(isPublicRoutableIp('8.8.8.8')).toBe(true)
+    expect(isPublicRoutableIp('2606:4700:4700::1111')).toBe(true)
+  })
+})
+
+describe('isMappableConnection', () => {
+  const baseConnection: Connection = {
+    pid: 1001,
+    process: 'browser.exe',
+    protocol: 'tcp',
+    localAddress: '192.168.1.50',
+    localPort: '50000',
+    peerAddress: '8.8.8.8',
+    peerPort: '443',
+    state: 'ESTABLISHED',
+  }
+
+  it('accepts active public peer connections', () => {
+    expect(isMappableConnection(baseConnection)).toBe(true)
+  })
+
+  it('rejects header artifacts, listeners, and private peers', () => {
+    expect(isMappableConnection({ ...baseConnection, protocol: 'proto', peerAddress: 'Address', state: 'Foreign' })).toBe(false)
+    expect(isMappableConnection({ ...baseConnection, peerAddress: '0.0.0.0', state: 'LISTEN' })).toBe(false)
+    expect(isMappableConnection({ ...baseConnection, peerAddress: '10.0.0.4' })).toBe(false)
   })
 })
 
