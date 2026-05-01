@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from 'react'
 import type { Connection } from '../types'
 
-const THROTTLE_MS = 2000
+const THROTTLE_MS = 1000
 
 export function useConnectionList() {
   const [connections, setConnections] = useState<Connection[]>([])
@@ -15,7 +15,6 @@ export function useConnectionList() {
         const data = await window.desktop.getNetworkConnections()
         if (Array.isArray(data)) {
           setConnections(data)
-          lastUpdateRef.current = Date.now()
         }
       } catch (error) {
         console.error('Failed to fetch connections:', error)

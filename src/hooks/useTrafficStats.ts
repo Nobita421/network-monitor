@@ -16,7 +16,6 @@ export function useTrafficStats() {
         const initialStats = await window.desktop.getTrafficStats()
         if (initialStats) {
           setStats(initialStats)
-          lastUpdateRef.current = Date.now()
         }
       } catch (error) {
         console.error('Failed to fetch traffic stats:', error)

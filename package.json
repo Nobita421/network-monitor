@@ -5,9 +5,9 @@
   "main": "dist-electron/main.js",
   "scripts": {
     "dev": "vite",
-    "build:no-geoip": "tsc && vite build && electron-builder --publish never",
+    "build:no-geoip": "node ./scripts/clean-build-output.mjs && tsc && vite build && electron-builder --publish never",
     "build": "pnpm geoip:update:best-effort && pnpm build:no-geoip",
-    "package:dir": "pnpm geoip:update:best-effort && electron-builder --dir --publish never",
+    "package:dir": "pnpm geoip:update:best-effort && node ./scripts/clean-build-output.mjs && tsc && vite build && electron-builder --dir --publish never",
     "test": "node ./scripts/run-vitest.mjs",
     "test:strict": "node ./scripts/run-vitest.mjs --testTimeout=30000 --hookTimeout=30000 --teardownTimeout=30000",
     "typecheck": "tsc --noEmit",
@@ -18,10 +18,36 @@
     "preinstall": "npx only-allow pnpm"
   },
   "build": {
+    "compression": "maximum",
     "directories": {
       "output": "release",
       "buildResources": "public"
     },
+    "removePackageScripts": true,
+    "electronLanguages": [
+      "en-US"
+    ],
+    "files": [
+      "package.json",
+      "dist-electron/**/*",
+      "dist-renderer/**/*",
+      "!node_modules/**/*",
+      "!dist/**/*",
+      "!release/**/*",
+      "!build/**/*",
+      "!src/**/*",
+      "!electron/**/*",
+      "!public/**/*",
+      "!scripts/**/*",
+      "!*.md",
+      "!*.yml",
+      "!*.yaml",
+      "!.git/**/*",
+      "!.github/**/*",
+      "!.vscode/**/*",
+      "!.opencode/**/*",
+      "!.antigravity/**/*"
+    ],
     "win": {
       "icon": "icon.ico"
     },

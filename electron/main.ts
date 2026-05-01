@@ -34,9 +34,10 @@ type GeoIpModule = {
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const NETWORK_POLL_INTERVAL_MS        = 2000
-const CONNECTION_POLL_INTERVAL_MS     = 6000
-const PING_POLL_INTERVAL_MS           = 5000
+const MAIN_WINDOW_NETWORK_POLL_INTERVAL_MS = 1000
+const OVERLAY_NETWORK_POLL_INTERVAL_MS     = 1000
+const CONNECTION_POLL_INTERVAL_MS     = 1000
+const PING_POLL_INTERVAL_MS           = 1000
 const PING_REQUEST_TIMEOUT_MS         = 2000
 const MIN_KILLABLE_PID                = 1000
 const KILL_REQUEST_COOLDOWN_MS        = 2000
@@ -77,6 +78,7 @@ let overlayWin: BrowserWindow | null = null
 let trafficMonitoringTimeout: NodeJS.Timeout | null    = null
 let connectionMonitoringTimeout: NodeJS.Timeout | null = null
 let pingMonitoringTimeout: NodeJS.Timeout | null       = null
+let trafficMonitoringInFlight = false
 let lastAlertTime  = 0
 let lastKillAttemptTime = 0
 let pauseTelemetryUntil = 0
@@ -223,6 +225,23 @@ function hasVisibleMainWindow() {
 
 function hasVisibleTrafficConsumer() {
   return isVisibleWindow(win) || isVisibleWindow(overlayWin)
+}
+
+function getTrafficPollIntervalMs() {
+  return hasVisibleMainWindow()
+    ? MAIN_WINDOW_NETWORK_POLL_INTERVAL_MS
+    : OVERLAY_NETWORK_POLL_INTERVAL_MS
+}
+
+function requestTrafficRefresh() {
+  if (trafficMonitoringTimeout) {
+    clearTimeout(trafficMonitoringTimeout)
+    trafficMonitoringTimeout = null
+  }
+
+  if (!trafficMonitoringInFlight) {
+    void monitorTrafficLoop()
+  }
 }
 
 function areConnectionsEqual(a: Connection[], b: Connection[]) {
@@ -416,6 +435,9 @@ function handleTrafficAlert(stats: NetworkStat) {
 // ─── Monitoring loops ─────────────────────────────────────────────────────────
 
 async function monitorTrafficLoop() {
+  if (trafficMonitoringInFlight) return
+  trafficMonitoringInFlight = true
+
   try {
     if (!isTelemetryPaused() && hasVisibleTrafficConsumer()) {
       const stats = await si.networkStats()
@@ -430,7 +452,8 @@ async function monitorTrafficLoop() {
   } catch (error) {
     console.error('Monitor loop error:', error)
   } finally {
-    trafficMonitoringTimeout = setTimeout(() => { void monitorTrafficLoop() }, NETWORK_POLL_INTERVAL_MS)
+    trafficMonitoringInFlight = false
+    trafficMonitoringTimeout = setTimeout(() => { void monitorTrafficLoop() }, getTrafficPollIntervalMs())
   }
 }
 
@@ -574,8 +597,15 @@ function createWindow() {
   // Restore maximized state
   if (winState.isMaximized) win.maximize()
 
-  // Show window once it's fully rendered (no flash)
-  win.once('ready-to-show', () => { win?.show() })
+  // Show window once it's fully rendered, then fetch fresh traffic immediately.
+  win.once('ready-to-show', () => {
+    win?.show()
+    requestTrafficRefresh()
+  })
+
+  win.on('show', requestTrafficRefresh)
+  win.on('restore', requestTrafficRefresh)
+  win.on('focus', requestTrafficRefresh)
 
   // Save window state before closing
   win.on('close', () => { if (win) saveWinState(win) })
