@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef } from 'react'
+import { getDesktop, invokeWithTimeout } from '../lib/ipc'
 import type { Connection } from '../types'
 
 const THROTTLE_MS = 1000
@@ -10,9 +11,12 @@ export function useConnectionList() {
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
+    const desktop = getDesktop()
+    if (!desktop) return
+
     const loadConnections = async () => {
       try {
-        const data = await window.desktop.getNetworkConnections()
+        const data = await invokeWithTimeout(() => desktop.getNetworkConnections())
         if (Array.isArray(data)) {
           setConnections(data)
         }
@@ -23,7 +27,7 @@ export function useConnectionList() {
 
     void loadConnections()
 
-    const unsubscribe = window.desktop.onConnectionsUpdate((nextConnections: Connection[]) => {
+    const unsubscribe = desktop.onConnectionsUpdate((nextConnections: Connection[]) => {
       const now = Date.now()
       const elapsed = now - lastUpdateRef.current
 

@@ -1,4 +1,6 @@
+import { useState } from 'react'
 import * as Lucide from 'lucide-react'
+import { getDesktop, invokeWithTimeout } from '../../lib/ipc'
 import { formatCountdown } from '../../lib/utils'
 import type { HistoryPoint, Tab } from '../../types'
 
@@ -26,6 +28,35 @@ export function Header({
   history, onExport, onOpenSettings, onTogglePause, onOpenCommandPalette,
 }: HeaderProps) {
   const meta = TAB_META[activeTab]
+  const [overlayOpen, setOverlayOpen] = useState(false)
+  const [overlayLocked, setOverlayLocked] = useState(false)
+
+  const handleToggleOverlay = async () => {
+    const desktop = getDesktop()
+    if (!desktop) return
+    try {
+      const opened = await invokeWithTimeout(() => desktop.toggleOverlay())
+      setOverlayOpen(opened)
+      if (!opened) setOverlayLocked(false)
+    } catch (error) {
+      console.error('Failed to toggle overlay:', error)
+    }
+  }
+
+  const handleToggleOverlayLock = async () => {
+    const desktop = getDesktop()
+    if (!desktop) return
+    try {
+      // Always flip the live mode from main — local state drifts when the
+      // overlay's own lock button is used (separate window, no shared state).
+      const current = await invokeWithTimeout(() => desktop.getOverlayMode())
+      const nextMode = current === 'locked' ? 'unlocked' : 'locked'
+      const success = await invokeWithTimeout(() => desktop.setOverlayMode(nextMode))
+      if (success) setOverlayLocked(nextMode === 'locked')
+    } catch (error) {
+      console.error('Failed to toggle overlay lock mode:', error)
+    }
+  }
 
   return (
     <header className="flex h-14 shrink-0 items-center justify-between border-b border-white/[0.06] bg-[#060b18]/80 px-5 backdrop-blur-2xl">
@@ -74,12 +105,35 @@ export function Header({
 
         {/* Ghost overlay */}
         <button
-          onClick={() => { void window.desktop.toggleOverlay() }}
-          className="rounded-lg border border-white/[0.07] bg-white/[0.04] p-1.5 text-slate-500 hover:bg-white/[0.08] hover:text-white transition-all duration-150"
-          title="Toggle Overlay"
+          onClick={() => { void handleToggleOverlay() }}
+          className={`rounded-lg border p-1.5 transition-all duration-150 ${
+            overlayOpen
+              ? 'border-sky-400/30 bg-sky-400/10 text-sky-300 hover:bg-sky-400/15'
+              : 'border-white/[0.07] bg-white/[0.04] text-slate-500 hover:bg-white/[0.08] hover:text-white'
+          }`}
+          title={overlayOpen ? 'Close Overlay' : 'Open Overlay'}
+          aria-label={overlayOpen ? 'Close Overlay' : 'Open Overlay'}
         >
           <Lucide.Ghost size={13} />
         </button>
+
+        {/* Overlay click-through lock — the overlay's own lock button becomes
+            unclickable once locked (OS-level click-through), so this is the
+            way back, as promised by the overlay's "Unlock via Main App" hint. */}
+        {overlayOpen && (
+          <button
+            onClick={() => { void handleToggleOverlayLock() }}
+            className={`rounded-lg border p-1.5 transition-all duration-150 ${
+              overlayLocked
+                ? 'border-rose-400/30 bg-rose-400/10 text-rose-300 hover:bg-rose-400/15'
+                : 'border-white/[0.07] bg-white/[0.04] text-slate-500 hover:bg-white/[0.08] hover:text-white'
+            }`}
+            title={overlayLocked ? 'Unlock Overlay (disable click-through)' : 'Lock Overlay (enable click-through)'}
+            aria-label={overlayLocked ? 'Unlock Overlay' : 'Lock Overlay'}
+          >
+            {overlayLocked ? <Lucide.Lock size={13} /> : <Lucide.Unlock size={13} />}
+          </button>
+        )}
 
         {/* Export */}
         <button

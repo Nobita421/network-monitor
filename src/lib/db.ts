@@ -5,6 +5,8 @@ export interface TrafficLog {
   timestamp: number
   rx: number
   tx: number
+  /** Round-trip ms from the latency sampler; absent when no sample succeeded. */
+  ping?: number
 }
 
 export class NetMonitorDB extends Dexie {

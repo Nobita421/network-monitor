@@ -3,6 +3,7 @@ import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import { HistoryPoint, HistoryRange } from '../../types'
 import { formatBytes } from '../../lib/utils'
 import { chartWindow, rangeOptions } from '../../lib/constants'
+import { CHART_SERIES, CHART_TOOLTIP_CURSOR, CHART_TOOLTIP_STYLE, formatRechartsByte } from './chart-theme'
 import * as Lucide from 'lucide-react'
 
 interface NetworkChartProps {
@@ -103,24 +104,17 @@ export const NetworkChart = memo(function NetworkChart({ history, range, onRange
                             width={70}
                         />
                         <Tooltip
-                            contentStyle={{
-                                backgroundColor: '#0a0f1e',
-                                border: '1px solid rgba(255,255,255,0.08)',
-                                borderRadius: 12,
-                                fontSize: 11,
-                                padding: '8px 12px',
-                                boxShadow: '0 4px 24px rgba(0,0,0,0.4)',
-                            }}
-                            itemStyle={{ color: '#cbd5e1', padding: '1px 0' }}
-                            labelStyle={{ color: '#64748b', marginBottom: 4 }}
-                            formatter={(value: number) => [`${formatBytes(value)}/s`, '']}
+                            contentStyle={CHART_TOOLTIP_STYLE.contentStyle}
+                            itemStyle={CHART_TOOLTIP_STYLE.itemStyle}
+                            labelStyle={CHART_TOOLTIP_STYLE.labelStyle}
+                            formatter={(value: number | string) => [`${formatRechartsByte(value)}/s`, '']}
                             isAnimationActive={false}
-                            cursor={{ stroke: 'rgba(255,255,255,0.1)', strokeWidth: 1 }}
+                            cursor={CHART_TOOLTIP_CURSOR}
                         />
                         <Area
                             type="monotone"
                             dataKey="rx"
-                            stroke="#34d399"
+                            stroke={CHART_SERIES.rx}
                             strokeWidth={2}
                             fillOpacity={1}
                             fill="url(#gRxChart)"
@@ -131,7 +125,7 @@ export const NetworkChart = memo(function NetworkChart({ history, range, onRange
                         <Area
                             type="monotone"
                             dataKey="tx"
-                            stroke="#38bdf8"
+                            stroke={CHART_SERIES.tx}
                             strokeWidth={2}
                             fillOpacity={1}
                             fill="url(#gTxChart)"

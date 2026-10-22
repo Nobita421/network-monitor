@@ -1,7 +1,6 @@
 import * as Lucide from 'lucide-react'
-import { useEffect, useState } from 'react'
 import type { NetworkStat, Tab } from '../../types'
-import { formatDuration } from '../../lib/utils'
+import { SessionTimer } from './SessionTimer'
 
 interface SidebarProps {
   activeTab: Tab
@@ -24,13 +23,7 @@ const COLOR_MAP = {
 }
 
 export function Sidebar({ activeTab, setActiveTab, stats }: SidebarProps) {
-  const [elapsedSeconds, setElapsedSeconds] = useState(0)
   const isUp = stats?.operstate === 'up'
-
-  useEffect(() => {
-    const id = window.setInterval(() => { setElapsedSeconds((seconds) => seconds + 1) }, 1000)
-    return () => { window.clearInterval(id) }
-  }, [])
 
   return (
     <aside className="hidden md:flex flex-col w-60 xl:w-64 border-r border-white/[0.06] bg-[#060b18]/95 backdrop-blur-2xl">
@@ -120,7 +113,7 @@ export function Sidebar({ activeTab, setActiveTab, stats }: SidebarProps) {
           </div>
           <div className="bg-[#060b18] px-4 py-2.5">
             <p className="text-[9px] text-slate-600 uppercase tracking-wider mb-0.5">Session</p>
-            <p className="text-xs text-slate-200 font-semibold font-data">{formatDuration(elapsedSeconds)}</p>
+            <SessionTimer />
           </div>
         </div>
       </div>

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
-import type { IpLocation } from '../lib/ipc'
+import { getDesktop, invokeWithTimeout, type IpLocation } from '../lib/ipc'
 
 interface GeoLocation extends IpLocation {
   ip: string
@@ -79,7 +79,9 @@ export function useGeoLocation(ips: string[]) {
       setIsLoading(true)
 
       try {
-        const results = await window.desktop.getIpLocations(ipsToFetch)
+        const desktop = getDesktop()
+        if (!desktop) return
+        const results = await invokeWithTimeout(() => desktop.getIpLocations(ipsToFetch))
         const cacheNow = Date.now()
 
         setLocations((prev) => {

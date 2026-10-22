@@ -13,6 +13,8 @@ type InterfaceTraffic = {
   tx_bytes?: number | null
 }
 
+const WINDOWS_RX_COUNTER_SUFFIX = '\\bytes received/sec'
+const WINDOWS_TX_COUNTER_SUFFIX = '\\bytes sent/sec'
 const VALID_PROTOCOL_RE = /^(tcp|udp)(4|6)?$/i
 const MAPPABLE_STATES = new Set(['ESTABLISHED', 'CLOSE_WAIT', 'SYN_SENT', 'SYN_RECV', 'SYN_RECEIVED'])
 
@@ -64,6 +66,65 @@ export function aggregateTrafficStats(networkStats: InterfaceTraffic[]): Network
     iface: activeIface || 'merged',
     operstate: hasActiveInterface ? 'up' : 'down',
     ...(hasByteCounters ? { rx_bytes: totalRxBytes, tx_bytes: totalTxBytes } : {}),
+  }
+}
+
+export function aggregateWindowsPerformanceCounters(samples: unknown): NetworkStat | null {
+  const sampleList = Array.isArray(samples) ? samples : [samples]
+  const activeInstances = new Set<string>()
+  let firstInstance = ''
+  let rxSec = 0
+  let txSec = 0
+  let rxBytes = 0
+  let txBytes = 0
+  let hasRxCounter = false
+  let hasTxCounter = false
+
+  for (const sample of sampleList) {
+    if (!isRecord(sample)) continue
+
+    const status = toFiniteNumber(sample.Status)
+    if (status !== null && status !== 0) continue
+
+    const counterPath = getStringField(sample, 'Path').toLowerCase()
+    const instanceName = getStringField(sample, 'InstanceName')
+    if (instanceName && !firstInstance) firstInstance = instanceName
+
+    const cookedValue = toFiniteNonNegativeNumber(sample.CookedValue)
+    const rawValue = toFiniteNonNegativeNumber(sample.RawValue)
+    const isRxCounter = counterPath.endsWith(WINDOWS_RX_COUNTER_SUFFIX)
+    const isTxCounter = counterPath.endsWith(WINDOWS_TX_COUNTER_SUFFIX)
+
+    if (!isRxCounter && !isTxCounter) continue
+
+    if (instanceName && (cookedValue > 0 || rawValue > 0)) {
+      activeInstances.add(instanceName)
+    }
+
+    if (isRxCounter) {
+      rxSec += cookedValue
+      rxBytes += rawValue
+      hasRxCounter = true
+    } else {
+      txSec += cookedValue
+      txBytes += rawValue
+      hasTxCounter = true
+    }
+  }
+
+  if (!hasRxCounter && !hasTxCounter) return null
+
+  const iface = activeInstances.size === 1
+    ? Array.from(activeInstances)[0]
+    : activeInstances.size > 1 ? 'merged' : firstInstance || 'merged'
+
+  return {
+    rx_sec: rxSec,
+    tx_sec: txSec,
+    rx_bytes: rxBytes,
+    tx_bytes: txBytes,
+    iface,
+    operstate: 'up',
   }
 }
 
@@ -124,7 +185,26 @@ export function buildProcessUsage(
 }
 
 function toFiniteNonNegativeNumber(value: unknown) {
-  return typeof value === 'number' && Number.isFinite(value) && value > 0 ? value : 0
+  const numberValue = toFiniteNumber(value)
+  return numberValue !== null && numberValue > 0 ? numberValue : 0
+}
+
+function toFiniteNumber(value: unknown) {
+  if (typeof value === 'number' && Number.isFinite(value)) return value
+  if (typeof value === 'string' && value.trim()) {
+    const parsed = Number(value)
+    return Number.isFinite(parsed) ? parsed : null
+  }
+  return null
+}
+
+export function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+function getStringField(record: Record<string, unknown>, key: string) {
+  const value = record[key]
+  return typeof value === 'string' ? value : ''
 }
 
 export function normalizeIpAddress(ip: string) {

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   aggregateTrafficStats,
+  aggregateWindowsPerformanceCounters,
   buildProcessUsage,
   getHistorySampleStep,
   isMappableConnection,
@@ -33,6 +34,55 @@ describe('aggregateTrafficStats', () => {
       rx_sec: 0,
       tx_sec: 0,
     })
+  })
+})
+
+describe('aggregateWindowsPerformanceCounters', () => {
+  it('aggregates Windows network interface counter samples', () => {
+    const aggregated = aggregateWindowsPerformanceCounters([
+      {
+        Path: '\\\\host\\network interface(intel[r] wi-fi 6e ax211 160mhz)\\bytes received/sec',
+        InstanceName: 'intel[r] wi-fi 6e ax211 160mhz',
+        CookedValue: 2048.5,
+        RawValue: 100000,
+        Status: 0,
+      },
+      {
+        Path: '\\\\host\\network interface(intel[r] wi-fi 6e ax211 160mhz)\\bytes sent/sec',
+        InstanceName: 'intel[r] wi-fi 6e ax211 160mhz',
+        CookedValue: 512.25,
+        RawValue: 20000,
+        Status: 0,
+      },
+    ])
+
+    expect(aggregated).toEqual({
+      iface: 'intel[r] wi-fi 6e ax211 160mhz',
+      operstate: 'up',
+      rx_sec: 2048.5,
+      tx_sec: 512.25,
+      rx_bytes: 100000,
+      tx_bytes: 20000,
+    })
+  })
+
+  it('ignores failed and unrelated counter samples', () => {
+    expect(aggregateWindowsPerformanceCounters([
+      {
+        Path: '\\\\host\\network interface(wi-fi)\\bytes received/sec',
+        InstanceName: 'wi-fi',
+        CookedValue: 100,
+        RawValue: 1000,
+        Status: 1,
+      },
+      {
+        Path: '\\\\host\\processor(_total)\\% processor time',
+        InstanceName: '_total',
+        CookedValue: 20,
+        RawValue: 20,
+        Status: 0,
+      },
+    ])).toBeNull()
   })
 })
 

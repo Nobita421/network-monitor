@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from 'react'
-import type { LatencyPayload } from '../lib/ipc'
+import { getDesktop, invokeWithTimeout, type LatencyPayload } from '../lib/ipc'
 import type { NetworkStat } from '../types'
 
 const THROTTLE_MS = 1000
@@ -11,9 +11,12 @@ export function useTrafficStats() {
   const timerRef      = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
+    const desktop = getDesktop()
+    if (!desktop) return
+
     const loadInitialStats = async () => {
       try {
-        const initialStats = await window.desktop.getTrafficStats()
+        const initialStats = await invokeWithTimeout(() => desktop.getTrafficStats())
         if (initialStats) {
           setStats(initialStats)
         }
@@ -24,7 +27,7 @@ export function useTrafficStats() {
 
     void loadInitialStats()
 
-    const unsubscribe = window.desktop.onTrafficUpdate((nextStats: NetworkStat) => {
+    const unsubscribe = desktop.onTrafficUpdate((nextStats: NetworkStat) => {
       const now     = Date.now()
       const elapsed = now - lastUpdateRef.current
 
@@ -48,7 +51,7 @@ export function useTrafficStats() {
       }
     })
 
-    const unsubscribeLatency = window.desktop.onLatencyUpdate((payload: LatencyPayload) => {
+    const unsubscribeLatency = desktop.onLatencyUpdate((payload: LatencyPayload) => {
       setStats((prev) => prev ? { ...prev, ping: payload.ping } : prev)
     })
 

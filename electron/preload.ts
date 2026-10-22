@@ -17,6 +17,7 @@ const desktopApi: DesktopApi = {
   getAppVersion: () => ipcRenderer.invoke(IPC_CHANNELS.getAppVersion),
   getIpLocations: (ips: string[]) => ipcRenderer.invoke(IPC_CHANNELS.getIpLocations, ips),
   getNetworkConnections: () => ipcRenderer.invoke(IPC_CHANNELS.getNetworkConnections) as Promise<Connection[]>,
+  getOverlayMode: () => ipcRenderer.invoke(IPC_CHANNELS.getOverlayMode),
   getTrafficStats: () => ipcRenderer.invoke(IPC_CHANNELS.getTrafficStats) as Promise<NetworkStat | null>,
   killProcess: (pid: number) => ipcRenderer.invoke(IPC_CHANNELS.killProcess, pid),
   onAlertTriggered: (listener: (payload: AlertPayload) => void) => subscribe(IPC_CHANNELS.alertTriggered, listener),
@@ -31,6 +32,9 @@ const desktopApi: DesktopApi = {
   toggleOverlay: () => ipcRenderer.invoke(IPC_CHANNELS.toggleOverlay),
   updateSettings: (settings: Settings) => {
     ipcRenderer.send(IPC_CHANNELS.updateSettings, settings)
+  },
+  notifyWatchSighting: (processName: string) => {
+    ipcRenderer.send(IPC_CHANNELS.watchSighting, processName)
   },
 }
 

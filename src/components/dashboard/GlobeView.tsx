@@ -1,30 +1,18 @@
 import { useMemo, useState, useEffect, memo, useRef, useCallback } from 'react'
 import Globe, { GlobeMethods } from 'react-globe.gl'
-import { Globe as GlobeIcon, Activity, ExternalLink, Zap } from 'lucide-react'
+import { Globe as GlobeIcon } from 'lucide-react'
 import { Card } from '../ui/Card'
 import { ConfirmationModal } from '../ui/ConfirmationModal'
-import { Drawer } from '../ui/Drawer'
+import { GlobeHoverCard, type GlobePoint } from './GlobeHoverCard'
+import { LocationDrawer } from './LocationDrawer'
 import type { Connection } from '../../types'
+import { getDesktop, invokeWithTimeout } from '../../lib/ipc'
+import { getTimezoneOrigin, getVisibleArcStart } from '../../lib/timezone-origin'
 import { useGeoLocation } from '../../hooks/useGeoLocation'
 import { isMappableConnection, normalizeIpAddress } from '../../lib/network'
 
 interface GlobeViewProps {
     connections: Connection[]
-}
-
-interface GlobePoint {
-    lat: number;
-    lng: number;
-    size: number;
-    color: string;
-    type: 'remote' | 'home';
-    labelText: string;
-    city?: string;
-    country?: string;
-    isp?: string;
-    asn?: string;
-    connCount: number;
-    connections?: Connection[];
 }
 
 interface GlobeHexPoint {
@@ -64,12 +52,6 @@ interface GlobeArc {
     animateTime: number;
 }
 
-interface GlobeOrigin {
-    lat: number;
-    lon: number;
-    label: string;
-}
-
 function isGlobeHexBin(value: unknown): value is GlobeHexBin {
     if (typeof value !== 'object' || value === null) return false
     const candidate = value as Partial<GlobeHexBin>
@@ -96,27 +78,6 @@ const RENDERER_CONFIG = {
 
 const MAX_ARCS = 50
 const MAX_RINGS = 50
-
-const TIMEZONE_ORIGINS: { match: RegExp; origin: GlobeOrigin }[] = [
-    { match: /^Asia\/(Calcutta|Kolkata)$/i, origin: { lat: 20.5937, lon: 78.9629, label: 'India timezone estimate' } },
-    { match: /^Asia\//i, origin: { lat: 1.3521, lon: 103.8198, label: 'Asia timezone estimate' } },
-    { match: /^Europe\//i, origin: { lat: 50.1109, lon: 8.6821, label: 'Europe timezone estimate' } },
-    { match: /^America\/(New_York|Detroit|Toronto|Montreal|Indiana|Kentucky)/i, origin: { lat: 39.8283, lon: -98.5795, label: 'North America timezone estimate' } },
-    { match: /^America\//i, origin: { lat: 39.8283, lon: -98.5795, label: 'Americas timezone estimate' } },
-    { match: /^Australia\//i, origin: { lat: -25.2744, lon: 133.7751, label: 'Australia timezone estimate' } },
-]
-
-function getTimezoneOrigin(): GlobeOrigin {
-    const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || ''
-    const matched = TIMEZONE_ORIGINS.find(({ match }) => match.test(timezone))
-    return matched?.origin ?? { lat: 0, lon: 0, label: 'Timezone unavailable' }
-}
-
-function getVisibleArcStart(origin: GlobeOrigin, endLat: number, endLng: number) {
-    const nearSamePoint = Math.abs(origin.lat - endLat) < 0.25 && Math.abs(origin.lon - endLng) < 0.25
-    if (!nearSamePoint) return { lat: origin.lat, lon: origin.lon }
-    return { lat: origin.lat, lon: ((origin.lon + 12 + 540) % 360) - 180 }
-}
 
 const MemoizedGlobe = memo(Globe)
 
@@ -341,9 +302,11 @@ export function GlobeView({ connections }: GlobeViewProps) {
     }, [])
 
     const handleKillProcess = useCallback(async (pid?: number) => {
-        if (!pid) return
+        if (!Number.isInteger(pid) || !pid || pid <= 0) return
+        const desktop = getDesktop()
+        if (!desktop) return
         try {
-            const success = await window.desktop.killProcess(pid)
+            const success = await invokeWithTimeout(() => desktop.killProcess(pid))
             if (!success) {
                 console.error(`Failed to kill ${pid}`)
                 return
@@ -506,52 +469,7 @@ export function GlobeView({ connections }: GlobeViewProps) {
                     rendererConfig={RENDERER_CONFIG}
                 />
 
-                {hoveredPoint && (
-                    <div className="absolute top-4 right-4 bg-slate-900/90 p-4 rounded-xl backdrop-blur-md border border-slate-700/50 shadow-2xl max-w-xs animate-in fade-in slide-in-from-top-2 duration-200 pointer-events-none z-10">
-                        <div className="flex items-center gap-2 mb-2">
-                            <div className={`w-3 h-3 rounded-full ${
-                                hoveredPoint.type === 'home' ? 'bg-blue-500' : 'bg-emerald-500'
-                            } animate-pulse shadow-[0_0_10px_currentColor]`} />
-                            <h4 className="font-bold text-white text-md">
-                                {hoveredPoint.city || 'Unknown'}, {hoveredPoint.country || 'Unknown'}
-                            </h4>
-                        </div>
-                        {hoveredPoint.type === 'remote' ? (
-                            <div className="space-y-2">
-                                <div>
-                                    <div className="text-xs text-slate-400 uppercase tracking-wider font-semibold">Top Process</div>
-                                    <div className="text-sm font-bold text-emerald-400 font-mono break-all">
-                                        {hoveredPoint.labelText.replace(/ \+\d+ locs$/, '')}
-                                    </div>
-                                </div>
-                                <div className="grid grid-cols-2 gap-2 pt-1 border-t border-slate-700/50">
-                                    <div>
-                                        <div className="text-[10px] text-slate-500">CONNECTIONS</div>
-                                        <div className="text-sm font-bold text-white">{hoveredPoint.connCount}</div>
-                                    </div>
-                                    <div>
-                                        <div className="text-[10px] text-slate-500">COORDINATES</div>
-                                        <div className="text-xs font-mono text-slate-300">
-                                            {hoveredPoint.lat.toFixed(1)}, {hoveredPoint.lng.toFixed(1)}
-                                        </div>
-                                    </div>
-                                </div>
-                                {hoveredPoint.isp && (
-                                    <div className="mt-2 pt-2 border-t border-slate-700/50">
-                                        <div className="text-[10px] text-slate-500">PROVIDER</div>
-                                        <div className="text-xs text-slate-200 font-medium truncate">{hoveredPoint.isp}</div>
-                                        <div className="text-[10px] text-slate-500 font-mono">{hoveredPoint.asn}</div>
-                                    </div>
-                                )}
-                            </div>
-                        ) : (
-                            <div className="text-xs text-slate-400 italic">
-                                Estimated origin (not device GPS)<br />
-                                Computed from observed remote endpoints.
-                            </div>
-                        )}
-                    </div>
-                )}
+                {hoveredPoint && <GlobeHoverCard point={hoveredPoint} />}
 
                 {/* Empty / loading state overlay */}
                 {connections.length > 0 && uniqueLocations.length === 0 && (
@@ -617,68 +535,12 @@ export function GlobeView({ connections }: GlobeViewProps) {
                 </div>
             </div>
 
-            <Drawer
+            <LocationDrawer
+                selected={selectedHex}
                 isOpen={isDrawerOpen}
                 onClose={() => setIsDrawerOpen(false)}
-                title={selectedHex ? `${selectedHex.city}, ${selectedHex.country}` : 'Location Details'}
-            >
-                {selectedHex && (
-                    <div className="space-y-6">
-                        <div className="grid grid-cols-2 gap-3">
-                            <div className="bg-slate-800/50 p-3 rounded-lg border border-slate-700">
-                                <p className="text-xs text-slate-400 mb-1 flex items-center gap-1">
-                                    <GlobeIcon size={12} /> NETWORK
-                                </p>
-                                <p className="text-sm font-semibold text-white truncate" title={selectedHex.isp}>
-                                    {selectedHex.isp || 'Unknown ISP'}
-                                </p>
-                                <p className="text-xs text-slate-500 font-mono">{selectedHex.asn}</p>
-                            </div>
-                            <div className="bg-slate-800/50 p-3 rounded-lg border border-slate-700">
-                                <p className="text-xs text-slate-400 mb-1 flex items-center gap-1">
-                                    <Activity size={12} /> TRAFFIC
-                                </p>
-                                <p className="text-sm font-semibold text-emerald-400">{selectedHex.connCount} Active</p>
-                            </div>
-                        </div>
-
-                        <div>
-                            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Active Connections</h3>
-                            <div className="space-y-2">
-                                {selectedHex.connections?.map((conn, idx) => (
-                                    <div
-                                        key={`${conn.pid}-${conn.peerAddress}-${idx}`}
-                                        className="bg-slate-800/30 p-3 rounded border border-slate-700/50 hover:border-slate-600 transition-colors group"
-                                    >
-                                        <div className="flex justify-between items-start mb-1">
-                                            <div className="font-mono text-sm text-green-400 font-bold">
-                                                {conn.process || 'System'}
-                                            </div>
-                                            <button
-                                                className="text-xs bg-red-500/10 text-red-400 px-2 py-1 rounded hover:bg-red-500 hover:text-white transition-all opacity-0 group-hover:opacity-100 flex items-center gap-1"
-                                                onClick={() => { requestKillProcess(conn) }}
-                                                disabled={!Number.isInteger(conn.pid) || !conn.pid || conn.pid <= 0}
-                                                title="Kill Process"
-                                            >
-                                                <Zap size={10} /> KILL
-                                            </button>
-                                        </div>
-                                        <div className="text-xs text-slate-400 font-mono mb-1 flex items-center gap-2">
-                                            <span>PID: {conn.pid}</span>
-                                            <span>•</span>
-                                            <span>{conn.protocol}</span>
-                                        </div>
-                                        <div className="flex items-center gap-1 text-[10px] text-slate-500 bg-slate-900/50 px-2 py-1 rounded w-fit font-mono">
-                                            <ExternalLink size={10} />
-                                            {conn.peerAddress}:{conn.peerPort}
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    </div>
-                )}
-            </Drawer>
+                onRequestKill={requestKillProcess}
+            />
 
             <ConfirmationModal
                 isOpen={Boolean(processToKill)}

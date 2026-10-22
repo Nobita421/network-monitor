@@ -1,10 +1,12 @@
-import { useState, useEffect } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, type TooltipProps } from 'recharts'
 import type { NameType, ValueType } from 'recharts/types/component/DefaultTooltipContent'
-import { BarChart2, Clock, TrendingDown, TrendingUp } from 'lucide-react'
+import { Activity, BarChart2, Clock, TrendingDown, TrendingUp } from 'lucide-react'
 import { db, type TrafficLog } from '../../lib/db'
 import { getHistorySampleStep, type StoredHistoryRange } from '../../lib/network'
 import { formatBytes } from '../../lib/utils'
+import { averagePing, extractPingSeries } from '../../lib/latency'
+import { CHART_SERIES, CHART_TOOLTIP_CURSOR, CHART_TOOLTIP_STYLE, formatRechartsByte } from './chart-theme'
 
 const RANGES: StoredHistoryRange[] = ['1h', '24h', '7d']
 
@@ -49,11 +51,13 @@ export function HistoryView() {
   const fmtX  = (v: number) => new Date(v).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
   const fmtTT = (v: string | number) => new Date(v).toLocaleString()
   const fmtVal: TooltipProps<ValueType, NameType>['formatter'] = v =>
-    [formatBytes(typeof v === 'number' ? v : Number(v)), '']
+    [`${formatRechartsByte(typeof v === 'number' ? v : Number(v))}/s`, '']
 
   const peak  = logs.reduce((m, l) => Math.max(m, l.rx, l.tx), 0)
   const avgRx = logs.length ? logs.reduce((s, l) => s + l.rx, 0) / logs.length : 0
   const avgTx = logs.length ? logs.reduce((s, l) => s + l.tx, 0) / logs.length : 0
+  const pingSeries = useMemo(() => extractPingSeries(logs), [logs])
+  const avgPing = averagePing(pingSeries)
 
   return (
     <div className="space-y-5 animate-fade-in-up">
@@ -90,16 +94,18 @@ export function HistoryView() {
 
       {/* Stats row */}
       {!loading && logs.length > 0 && (
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
           {[
             { label: 'Peak Speed',   value: `${formatBytes(peak)}/s`,   color: 'rose',    icon: <BarChart2 size={14} className="text-rose-400" />    },
             { label: 'Avg Download', value: `${formatBytes(avgRx)}/s`,  color: 'emerald', icon: <TrendingDown size={14} className="text-emerald-400" /> },
             { label: 'Avg Upload',   value: `${formatBytes(avgTx)}/s`,  color: 'sky',     icon: <TrendingUp size={14} className="text-sky-400" />    },
+            { label: 'Avg Ping',     value: pingSeries.length ? `${avgPing.toFixed(0)} ms` : '—', color: 'amber', icon: <Activity size={14} className="text-amber-400" /> },
           ].map(s => {
             const colorMap: Record<string, string> = {
               rose: 'border-rose-400/15 bg-rose-400/[0.05] text-rose-300',
               emerald: 'border-emerald-400/15 bg-emerald-400/[0.05] text-emerald-300',
               sky: 'border-sky-400/15 bg-sky-400/[0.05] text-sky-300',
+              amber: 'border-amber-400/15 bg-amber-400/[0.05] text-amber-300',
             }
             return (
               <div key={s.label} className={`rounded-xl border ${colorMap[s.color]} p-4`}>
@@ -169,22 +175,15 @@ export function HistoryView() {
                 width={72}
               />
               <Tooltip
-                contentStyle={{
-                  background: '#0a0f1e',
-                  border: '1px solid rgba(255,255,255,0.08)',
-                  borderRadius: 12,
-                  fontSize: 11,
-                  padding: '8px 12px',
-                  boxShadow: '0 4px 24px rgba(0,0,0,0.4)',
-                }}
-                itemStyle={{ color: '#cbd5e1', padding: '1px 0' }}
-                labelStyle={{ color: '#64748b', marginBottom: 4 }}
+                contentStyle={CHART_TOOLTIP_STYLE.contentStyle}
+                itemStyle={CHART_TOOLTIP_STYLE.itemStyle}
+                labelStyle={CHART_TOOLTIP_STYLE.labelStyle}
                 labelFormatter={fmtTT}
                 formatter={fmtVal}
-                cursor={{ stroke: 'rgba(255,255,255,0.1)', strokeWidth: 1 }}
+                cursor={CHART_TOOLTIP_CURSOR}
               />
-              <Area type="monotone" dataKey="rx" name="Download" stroke="#34d399" fill="url(#histGRx)" strokeWidth={2} dot={false} />
-              <Area type="monotone" dataKey="tx" name="Upload"   stroke="#38bdf8" fill="url(#histGTx)" strokeWidth={2} dot={false} />
+              <Area type="monotone" dataKey="rx" name="Download" stroke={CHART_SERIES.rx} fill="url(#histGRx)" strokeWidth={2} dot={false} />
+              <Area type="monotone" dataKey="tx" name="Upload"   stroke={CHART_SERIES.tx} fill="url(#histGTx)" strokeWidth={2} dot={false} />
             </AreaChart>
           </ResponsiveContainer>
         )}
@@ -205,6 +204,62 @@ export function HistoryView() {
             <Clock size={10} />
             Updated {new Date().toLocaleTimeString()}
           </span>
+        </div>
+      )}
+
+      {/* Latency history — ping samples ride along with traffic logs */}
+      {!loading && pingSeries.length > 0 && (
+        <div
+          className="rounded-2xl border border-white/[0.06] overflow-hidden"
+          style={{
+            height: 220,
+            background: 'linear-gradient(180deg, rgba(6,11,24,0.95) 0%, rgba(3,7,18,0.98) 100%)',
+            boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.04)',
+          }}
+        >
+          <div className="flex items-center justify-between px-5 pt-4">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">Latency</p>
+            <p className="text-[11px] text-slate-500 font-data">avg {avgPing.toFixed(0)} ms · {pingSeries.length} samples</p>
+          </div>
+          <ResponsiveContainer width="100%" height="78%">
+            <AreaChart data={pingSeries} margin={{ top: 8, right: 20, bottom: 0, left: 0 }}>
+              <defs>
+                <linearGradient id="histGPing" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%"  stopColor="#fbbf24" stopOpacity={0.3} />
+                  <stop offset="95%" stopColor="#fbbf24" stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="0" stroke="rgba(255,255,255,0.025)" vertical={false} />
+              <XAxis
+                dataKey="timestamp"
+                tickFormatter={fmtX}
+                stroke="transparent"
+                tick={{ fontSize: 10, fill: '#334155' }}
+                tickLine={false}
+                axisLine={false}
+              />
+              <YAxis
+                tickFormatter={(v: number | string) => `${v} ms`}
+                stroke="transparent"
+                tick={{ fontSize: 10, fill: '#334155' }}
+                tickLine={false}
+                axisLine={false}
+                width={64}
+              />
+              <Tooltip
+                contentStyle={CHART_TOOLTIP_STYLE.contentStyle}
+                itemStyle={CHART_TOOLTIP_STYLE.itemStyle}
+                labelStyle={CHART_TOOLTIP_STYLE.labelStyle}
+                labelFormatter={fmtTT}
+                formatter={(v: ValueType) => {
+                  const ms = typeof v === 'number' ? v.toFixed(0) : String(v)
+                  return [`${ms} ms`, 'Ping']
+                }}
+                cursor={CHART_TOOLTIP_CURSOR}
+              />
+              <Area type="monotone" dataKey="ping" name="Ping" stroke="#fbbf24" fill="url(#histGPing)" strokeWidth={2} dot={false} />
+            </AreaChart>
+          </ResponsiveContainer>
         </div>
       )}
     </div>

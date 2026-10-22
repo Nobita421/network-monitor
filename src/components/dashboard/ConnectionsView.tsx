@@ -27,9 +27,9 @@ export function ConnectionsView({
   return (
     <div className="flex h-full gap-5">
       {/* Main table area */}
-      <div className="flex-1 min-w-0">
-        <ConnectionTable connections={connections} />
-      </div>
+                <div className="flex-1 min-w-0">
+                    <ConnectionTable connections={connections} watchlist={settings.watchlist} />
+                </div>
 
       {/* Right sidebar */}
       <aside className="hidden xl:flex flex-col gap-3 w-64 shrink-0">

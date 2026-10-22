@@ -8,6 +8,7 @@ export const defaultSettings: Settings = {
   threshold: 5 * 1024 * 1024,
   cooldownMinutes: 5,
   pauseMinutes: 5,
+  watchlist: [],
 }
 
 export const rangeOptions: { label: string; value: HistoryRange }[] = [

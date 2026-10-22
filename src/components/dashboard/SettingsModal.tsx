@@ -1,7 +1,8 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import * as Lucide from 'lucide-react'
 import { formatBytes, formatMinutesDuration } from '../../lib/utils'
 import { useFocusTrap } from '../../hooks/useFocusTrap'
+import { MAX_WATCHLIST_ENTRIES } from '../../lib/watchlist'
 
 interface SettingsModalProps {
   isOpen: boolean
@@ -13,6 +14,9 @@ interface SettingsModalProps {
   }
   updateDraft: (field: 'thresholdMb' | 'cooldown' | 'pauseMinutes', value: number) => void
   onSave: () => void
+  watchlist: string[]
+  onAddWatch: (name: string) => void
+  onRemoveWatch: (name: string) => void
 }
 
 interface SliderRowProps {
@@ -81,9 +85,10 @@ function SliderRow({ id, label, description, min, max, step, value, displayValue
   )
 }
 
-export function SettingsModal({ isOpen, onClose, draft, updateDraft, onSave }: SettingsModalProps) {
+export function SettingsModal({ isOpen, onClose, draft, updateDraft, onSave, watchlist, onAddWatch, onRemoveWatch }: SettingsModalProps) {
   const modalRef = useRef<HTMLDivElement>(null)
   const titleId  = 'settings-modal-title'
+  const [watchInput, setWatchInput] = useState('')
 
   useFocusTrap(modalRef, isOpen)
 
@@ -179,6 +184,68 @@ export function SettingsModal({ isOpen, onClose, draft, updateDraft, onSave }: S
             onChange={(v) => updateDraft('pauseMinutes', v / 60)}
             icon={<Lucide.Clock size={14} />}
           />
+
+          {/* Process watchlist */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="text-amber-400" aria-hidden><Lucide.Eye size={14} /></span>
+                <label htmlFor="settings-watchlist" className="text-[13px] font-semibold text-slate-200">Process Watchlist</label>
+              </div>
+              <span className="text-[11px] text-slate-600 font-data" aria-live="polite">
+                {watchlist.length}/{MAX_WATCHLIST_ENTRIES}
+              </span>
+            </div>
+            <div className="flex gap-2">
+              <input
+                id="settings-watchlist"
+                type="text"
+                value={watchInput}
+                onChange={(e) => setWatchInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && watchInput.trim()) {
+                    onAddWatch(watchInput)
+                    setWatchInput('')
+                  }
+                }}
+                placeholder="e.g. chrome.exe — Enter to add"
+                className="flex-1 rounded-xl border border-white/[0.07] bg-white/[0.03] px-3 py-2 text-[12px] text-slate-200 placeholder:text-slate-700 focus:outline-none focus:border-amber-500/40 focus:bg-white/[0.05] transition-all duration-150"
+              />
+              <button
+                onClick={() => {
+                  if (watchInput.trim()) {
+                    onAddWatch(watchInput)
+                    setWatchInput('')
+                  }
+                }}
+                aria-label="Add process to watchlist"
+                className="rounded-xl border border-amber-400/20 bg-amber-400/10 px-3 text-amber-300 hover:bg-amber-400/15 transition-all"
+              >
+                <Lucide.Plus size={14} />
+              </button>
+            </div>
+            {watchlist.length > 0 ? (
+              <div className="flex flex-wrap gap-1.5">
+                {watchlist.map((entry) => (
+                  <span
+                    key={entry}
+                    className="flex items-center gap-1.5 rounded-lg border border-amber-400/15 bg-amber-400/[0.06] px-2 py-1 text-[11px] font-medium text-amber-200"
+                  >
+                    {entry}
+                    <button
+                      onClick={() => onRemoveWatch(entry)}
+                      aria-label={`Remove ${entry} from watchlist`}
+                      className="text-amber-500 hover:text-amber-200 transition-colors"
+                    >
+                      <Lucide.X size={11} />
+                    </button>
+                  </span>
+                ))}
+              </div>
+            ) : (
+              <p className="text-[11px] text-slate-600">Get notified the moment a watched process opens a connection.</p>
+            )}
+          </div>
         </div>
 
         {/* Footer */}

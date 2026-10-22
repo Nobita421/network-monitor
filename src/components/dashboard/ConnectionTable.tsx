@@ -1,17 +1,20 @@
 import { memo, useMemo, useState } from 'react'
 import type { Connection } from '../../types'
 import { stateFilters } from '../../lib/constants'
+import { isWatchedProcess } from '../../lib/watchlist'
 import * as Lucide from 'lucide-react'
 
 interface ConnectionTableProps {
     connections: Connection[]
+    watchlist?: string[]
 }
 
 const PAGE_SIZE = 100
 
-export const ConnectionTable = memo(function ConnectionTable({ connections }: ConnectionTableProps) {
+export const ConnectionTable = memo(function ConnectionTable({ connections, watchlist = [] }: ConnectionTableProps) {
     const [search, setSearch] = useState('')
     const [stateFilter, setStateFilter] = useState<'all' | 'ESTABLISHED' | 'LISTEN'>('all')
+    const [watchedOnly, setWatchedOnly] = useState(false)
     const [page, setPage] = useState(1)
 
     const filteredConnections = useMemo(() => {
@@ -23,9 +26,10 @@ export const ConnectionTable = memo(function ConnectionTable({ connections }: Co
                 (conn.localAddress || '').toLowerCase().includes(query) ||
                 (conn.peerAddress || '').toLowerCase().includes(query)
             const matchesState = stateFilter === 'all' || conn.state === stateFilter
-            return matchesQuery && matchesState
+            const matchesWatch = !watchedOnly || isWatchedProcess(conn.process, watchlist)
+            return matchesQuery && matchesState && matchesWatch
         })
-    }, [connections, search, stateFilter])
+    }, [connections, search, stateFilter, watchedOnly, watchlist])
 
     const totalPages = Math.max(1, Math.ceil(filteredConnections.length / PAGE_SIZE))
     const currentPage = Math.min(page, totalPages)
@@ -89,6 +93,24 @@ export const ConnectionTable = memo(function ConnectionTable({ connections }: Co
                                     {filter.label}
                                 </button>
                             ))}
+                            {watchlist.length > 0 && (
+                                <button
+                                    onClick={() => {
+                                        setWatchedOnly((v) => !v)
+                                        resetToFirstPage()
+                                    }}
+                                    aria-pressed={watchedOnly}
+                                    title="Show only watched processes"
+                                    className={`flex items-center gap-1 rounded-lg px-3 py-1 text-[11px] font-semibold transition-all duration-150 ${
+                                        watchedOnly
+                                            ? 'bg-amber-400/15 text-amber-300 shadow-sm'
+                                            : 'text-slate-600 hover:text-slate-300 hover:bg-white/[0.04]'
+                                    }`}
+                                >
+                                    <Lucide.Eye size={11} />
+                                    Watched
+                                </button>
+                            )}
                         </div>
                     </div>
                 </div>
@@ -115,10 +137,17 @@ export const ConnectionTable = memo(function ConnectionTable({ connections }: Co
                             {pagedConnections.map((conn) => (
                                 <tr
                                     key={`${conn.pid}-${conn.protocol}-${conn.localAddress}-${conn.localPort}-${conn.peerAddress}-${conn.peerPort}`}
-                                    className="border-t border-white/[0.025] text-sm hover:bg-white/[0.025] transition-colors duration-100"
+                                    className={`border-t border-white/[0.025] text-sm hover:bg-white/[0.025] transition-colors duration-100 ${
+                                        isWatchedProcess(conn.process, watchlist) ? 'bg-amber-400/[0.05]' : ''
+                                    }`}
                                 >
                                     <td className="px-5 py-3">
-                                        <span className="font-medium text-[12px] text-slate-200">{conn.process || 'System'}</span>
+                                        <span className="flex items-center gap-1.5 font-medium text-[12px] text-slate-200">
+                                            {isWatchedProcess(conn.process, watchlist) && (
+                                                <Lucide.Eye size={11} className="shrink-0 text-amber-400" aria-label="Watched process" />
+                                            )}
+                                            {conn.process || 'System'}
+                                        </span>
                                     </td>
                                     <td className="px-5 py-3">
                                         <span className="rounded-md border border-white/[0.06] bg-white/[0.03] px-2 py-0.5 text-[10px] font-bold text-slate-500 font-data">

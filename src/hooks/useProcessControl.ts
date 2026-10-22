@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react'
+import { getDesktop, invokeWithTimeout } from '../lib/ipc'
 import { toast } from '../components/ui/Toast'
 
 export interface KillResult {
@@ -10,9 +11,16 @@ export function useProcessControl() {
   const [isKilling, setIsKilling] = useState<number | null>(null)
 
   const killProcess = useCallback(async (pid: number): Promise<KillResult> => {
+    if (!Number.isInteger(pid) || pid <= 0) {
+      return { ok: false, reason: 'Invalid process ID.' }
+    }
+    const desktop = getDesktop()
+    if (!desktop) {
+      return { ok: false, reason: 'Desktop bridge unavailable.' }
+    }
     setIsKilling(pid)
     try {
-      const success = await window.desktop.killProcess(pid)
+      const success = await invokeWithTimeout(() => desktop.killProcess(pid))
       if (success) {
         toast.success('Process terminated', `PID ${pid} was killed successfully`)
         return { ok: true }

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Activity, AlertTriangle, ArrowDown, ArrowUp, Lock, Unlock, WifiOff } from 'lucide-react'
-import type { AlertPayload, LatencyPayload } from '../../lib/ipc'
+import { getDesktop, invokeWithTimeout, type AlertPayload, type LatencyPayload } from '../../lib/ipc'
 import { formatBytes } from '../../lib/utils'
 import type { NetworkStat } from '../../types'
 
@@ -54,9 +54,14 @@ export function OverlayView() {
   }, [])
 
   useEffect(() => {
+    const desktop = getDesktop()
+    if (!desktop) {
+      setIsStale(true)
+      return
+    }
     const loadInitialStats = async () => {
       try {
-        const data = await window.desktop.getTrafficStats()
+        const data = await invokeWithTimeout(() => desktop.getTrafficStats())
         if (data) {
           setStats((prev) => mergeOverlayStats(prev, data))
           resetStalenessTimer()
@@ -68,18 +73,18 @@ export function OverlayView() {
 
     void loadInitialStats()
 
-    const unsubscribeTraffic = window.desktop.onTrafficUpdate((data: NetworkStat) => {
+    const unsubscribeTraffic = desktop.onTrafficUpdate((data: NetworkStat) => {
       setStats((prev) => mergeOverlayStats(prev, data))
       resetStalenessTimer()
     })
 
-    const unsubscribeLatency = window.desktop.onLatencyUpdate((payload: LatencyPayload) => {
+    const unsubscribeLatency = desktop.onLatencyUpdate((payload: LatencyPayload) => {
       setStats((prev) => (
         prev.ping === payload.ping ? prev : { ...prev, ping: payload.ping }
       ))
     })
 
-    const unsubscribeAlert = window.desktop.onAlertTriggered((payload: AlertPayload) => {
+    const unsubscribeAlert = desktop.onAlertTriggered((payload: AlertPayload) => {
       setAlert({ title: payload.title, body: payload.body, time: payload.time })
       if (alertTimeoutRef.current) window.clearTimeout(alertTimeoutRef.current)
       alertTimeoutRef.current = window.setTimeout(() => {
@@ -101,14 +106,19 @@ export function OverlayView() {
   }, [resetStalenessTimer])
 
   const toggleLock = useCallback(async () => {
-    const nextMode = isLocked ? 'unlocked' : 'locked'
+    const desktop = getDesktop()
+    if (!desktop) return
     try {
-      const success = await window.desktop.setOverlayMode(nextMode)
-      if (success) setIsLocked(!isLocked)
+      // Flip the live mode from main, not local state — the main app's lock
+      // button shares this state from a separate window.
+      const current = await invokeWithTimeout(() => desktop.getOverlayMode())
+      const nextMode = current === 'locked' ? 'unlocked' : 'locked'
+      const success = await invokeWithTimeout(() => desktop.setOverlayMode(nextMode))
+      if (success) setIsLocked(nextMode === 'locked')
     } catch (error) {
       console.error('Failed to toggle overlay lock mode:', error)
     }
-  }, [isLocked])
+  }, [])
 
   return (
     <>
@@ -189,6 +199,7 @@ export function OverlayView() {
               isLocked ? 'text-rose-400 hover:bg-rose-500/20' : 'text-slate-400 hover:bg-white/10 hover:text-white',
             ].join(' ')}
             title={isLocked ? 'Locked — click-through enabled. Toggle in Main App to unlock.' : 'Lock (enable click-through)'}
+            aria-label={isLocked ? 'Overlay locked' : 'Lock overlay'}
           >
             {isLocked ? <Lock size={10} /> : <Unlock size={10} />}
           </button>

@@ -7,6 +7,7 @@ import { CommandPalette } from './components/ui/CommandPalette'
 import { ErrorBoundary } from './components/ui/ErrorBoundary'
 import { ToastContainer } from './components/ui/Toast'
 import { useNetworkData } from './hooks/useNetworkData'
+import { useProcessWatch } from './hooks/useProcessWatch'
 import { useSettings } from './hooks/useSettings'
 import { isDesktopAvailable } from './lib/ipc'
 import type { HistoryRange, Tab } from './types'
@@ -66,13 +67,15 @@ function MainShell() {
   const [lastExportTime,  setLastExportTime]  = useState<string | null>(null)
   const [cmdOpen,         setCmdOpen]         = useState(false)
 
-  const { settings, isModalOpen, setIsModalOpen, draft, updateDraft, saveSettings } = useSettings()
+  const { settings, isModalOpen, setIsModalOpen, draft, updateDraft, saveSettings, watchDraft, addWatchEntry, removeWatchEntry } = useSettings()
 
   const {
     stats, history, connections, processUsage, sessionUsage,
     maxSpikes, alertLog, alertIndicator,
     telemetryPaused, pauseCountdown, toggleTelemetry,
   } = useNetworkData(settings)
+
+  useProcessWatch(connections, settings.watchlist)
 
   // Global Ctrl+K / Cmd+K listener
   useEffect(() => {
@@ -198,6 +201,9 @@ function MainShell() {
         draft={draft}
         updateDraft={updateDraft}
         onSave={saveSettings}
+        watchlist={watchDraft}
+        onAddWatch={addWatchEntry}
+        onRemoveWatch={removeWatchEntry}
       />
 
       <CommandPalette

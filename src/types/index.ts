@@ -45,6 +45,8 @@ export type Settings = {
   threshold: number
   cooldownMinutes: number
   pauseMinutes: number
+  /** Lowercased process names to watch (e.g. ['chrome.exe']). Empty = disabled. */
+  watchlist: string[]
 }
 
 /** Centralized Tab type — used across App, Header, Sidebar, CommandPalette */

@@ -5,11 +5,13 @@ import { HISTORY_RETENTION_MS, TELEMETRY_RESUME_KEY } from '../lib/constants'
 import { db, type TrafficLog } from '../lib/db'
 import { buildProcessUsage } from '../lib/network'
 import type { AlertPayload } from '../lib/ipc'
+import { getDesktop } from '../lib/ipc'
+import { resolveAlertEntry } from '../lib/alerts'
 import { useTrafficStats } from './useTrafficStats'
 import { useConnectionList } from './useConnectionList'
 import { toast } from '../components/ui/Toast'
 
-const MAX_HISTORY = 120
+const MAX_HISTORY = 300 // matches the 5m chart window (chartWindow['5m']) at 1Hz
 const HISTORY_WRITE_BATCH_MS = 5000
 
 export function useNetworkData(settings: Settings) {
@@ -115,30 +117,32 @@ export function useNetworkData(settings: Settings) {
   // Sync pause state to main process
   useEffect(() => {
     if (typeof window === 'undefined') return
+    const desktop = getDesktop()
+    if (!desktop) return
     if (telemetryPaused && telemetryResumeAt) {
       const remaining = telemetryResumeAt - Date.now()
-      window.desktop.setTelemetryPaused(Math.max(remaining, 0))
+      desktop.setTelemetryPaused(Math.max(remaining, 0))
     } else {
-      window.desktop.setTelemetryPaused(0)
+      desktop.setTelemetryPaused(0)
     }
   }, [telemetryPaused, telemetryResumeAt])
 
   // Subscribe to alert events
   useEffect(() => {
-    const unsubscribe = window.desktop.onAlertTriggered((data: AlertPayload) => {
-      const direction: AlertLogEntry['direction'] = data.title.toLowerCase().includes('download') ? 'rx' : 'tx'
-      const rateMatch = data.body.match(/speed: (.*)/i)
-      const time = data.time ? new Date(data.time).toLocaleTimeString() : new Date().toLocaleTimeString()
+    const desktop = getDesktop()
+    if (!desktop) return
+    const unsubscribe = desktop.onAlertTriggered((data: AlertPayload) => {
+      const { time, direction, rate } = resolveAlertEntry(data)
 
       setAlertIndicator(true)
-      setAlertLog((prev) => [{ time, direction, rate: rateMatch ? rateMatch[1] : 'High' }, ...prev].slice(0, 50))
+      setAlertLog((prev) => [{ time, direction, rate }, ...prev].slice(0, 50))
 
       if (alertIndicatorTimeoutRef.current) window.clearTimeout(alertIndicatorTimeoutRef.current)
       alertIndicatorTimeoutRef.current = window.setTimeout(() => { setAlertIndicator(false) }, 2000)
     })
 
     // Listen for app-before-quit to gracefully unsubscribe
-    const unsubscribeQuit = window.desktop.onAppBeforeQuit(() => {
+    const unsubscribeQuit = desktop.onAppBeforeQuit(() => {
       unsubscribe()
     })
 
@@ -180,7 +184,14 @@ export function useNetworkData(settings: Settings) {
     if (!telemetryPaused) {
       const isoTime   = new Date(timestamp).toISOString()
 
-      queueHistoryLog({ timestamp, rx: data.rx_sec, tx: data.tx_sec })
+      const pingSample = data.ping
+      queueHistoryLog({
+        timestamp,
+        rx: data.rx_sec,
+        tx: data.tx_sec,
+        // IndexedDB can't store `undefined` — only include ping on success.
+        ...(typeof pingSample === 'number' && pingSample > 0 ? { ping: pingSample } : {}),
+      })
 
       setHistory((prev) => {
         const newPoint: HistoryPoint = {
@@ -217,7 +228,13 @@ export function useNetworkData(settings: Settings) {
     if (!telemetryPaused && (rxDelta > 0 || txDelta > 0)) {
       setSessionUsage((prev) => ({ rx: prev.rx + rxDelta, tx: prev.tx + txDelta }))
     }
-    setMaxSpikes((prev)   => ({ rx: Math.max(prev.rx, data.rx_sec), tx: Math.max(prev.tx, data.tx_sec) }))
+    // Avoid allocating a new state object (and re-rendering consumers) when
+    // neither direction set a new max — this effect runs at 1Hz.
+    setMaxSpikes((prev) => {
+      const nextRx = Math.max(prev.rx, data.rx_sec)
+      const nextTx = Math.max(prev.tx, data.tx_sec)
+      return nextRx === prev.rx && nextTx === prev.tx ? prev : { rx: nextRx, tx: nextTx }
+    })
   }, [trafficStats, telemetryPaused, queueHistoryLog])
 
   const processUsage = useMemo<ProcessUsageEntry[]>(

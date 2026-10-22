@@ -2,10 +2,8 @@ import { Settings } from '../types'
 import { defaultSettings, SETTINGS_STORAGE_KEY } from './constants'
 import { clsx, type ClassValue } from 'clsx'
 import { twMerge } from 'tailwind-merge'
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null
-}
+import { isRecord } from './network'
+import { sanitizeWatchlist } from './watchlist'
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
@@ -23,6 +21,7 @@ export const loadSettings = (): Settings => {
       threshold: Number(parsedSettings.threshold) || defaultSettings.threshold,
       cooldownMinutes: Number(parsedSettings.cooldownMinutes) || defaultSettings.cooldownMinutes,
       pauseMinutes: Number(parsedSettings.pauseMinutes) || defaultSettings.pauseMinutes,
+      watchlist: sanitizeWatchlist(parsedSettings.watchlist),
     }
   } catch (error) {
     console.warn('Failed to parse settings, falling back to defaults.', error)
