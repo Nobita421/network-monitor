@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, Notification } from 'electron'
+import { app, BrowserWindow, ipcMain, Notification, screen } from 'electron'
 import { execFile } from 'node:child_process'
 import path from 'node:path'
 import * as fs from 'node:fs'
@@ -10,6 +10,7 @@ import { backoffDelayMs } from '../src/lib/polling'
 import {
   aggregateTrafficStats,
   aggregateWindowsPerformanceCounters,
+  isRecord,
   isValidConnection,
   normalizeIpAddress,
 } from '../src/lib/network'
@@ -27,15 +28,16 @@ import {
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const MAIN_WINDOW_NETWORK_POLL_INTERVAL_MS = 1000
-const OVERLAY_NETWORK_POLL_INTERVAL_MS     = 1000
-const CONNECTION_POLL_INTERVAL_MS     = 1000
-const PING_POLL_INTERVAL_MS           = 1000
+const OVERLAY_NETWORK_POLL_INTERVAL_MS     = 1500
+const CONNECTION_POLL_INTERVAL_MS     = 3000
+const PING_POLL_INTERVAL_MS           = 5000
 const PING_REQUEST_TIMEOUT_MS         = 2000
 const MIN_KILLABLE_PID                = 1000
 const KILL_REQUEST_COOLDOWN_MS        = 2000
 const MAX_TELEMETRY_PAUSE_DURATION_MS = 24 * 60 * 60 * 1000
 const RUNTIME_CACHE_DIR_NAME          = 'netmonitor-runtime-cache'
 const WIN_STATE_FILE                  = 'window-state.json'
+const APP_USER_MODEL_ID               = 'com.netmonitor.pro'
 const WINDOWS_NETWORK_COUNTER_SCRIPT  = [
   // Use SilentlyContinue so transient PDH "negative value" errors don't abort the whole command.
   "Get-Counter '\\Network Interface(*)\\Bytes Received/sec','\\Network Interface(*)\\Bytes Sent/sec' -MaxSamples 1 -ErrorAction SilentlyContinue",
@@ -50,7 +52,7 @@ const execFileAsync = promisify(execFile)
 
 const GEO_DATA_DIR = app.isPackaged
   ? path.join(process.resourcesPath, 'data')
-  : path.join(__dirname, '../../node_modules/geoip-lite/data')
+  : path.join(__dirname, '../node_modules/geoip-lite/data')
 
 ;(globalThis as { geodatadir?: string }).geodatadir = GEO_DATA_DIR
 
@@ -59,6 +61,8 @@ process.env.VITE_PUBLIC = app.isPackaged ? process.env.DIST : path.join(__dirnam
 
 // ─── Single-instance lock ─────────────────────────────────────────────────────
 // Must be called before app.whenReady()
+
+app.setAppUserModelId(app.isPackaged ? APP_USER_MODEL_ID : process.execPath)
 
 const gotSingleInstanceLock = app.requestSingleInstanceLock()
 
@@ -122,15 +126,41 @@ function getWinStatePath(): string {
   return path.join(app.getPath('userData'), WIN_STATE_FILE)
 }
 
+function finiteOrNull(value: unknown) {
+  const numeric = Number(value)
+  return Number.isFinite(numeric) ? numeric : null
+}
+
 function loadWinState(): WinState {
+  let parsed: Record<string, unknown> = {}
+
   try {
-    const raw = fs.readFileSync(getWinStatePath(), 'utf8')
-    const parsed = JSON.parse(raw) as Partial<WinState>
-    const width  = Number(parsed.width)  || 1200
-    const height = Number(parsed.height) || 800
-    return { x: parsed.x, y: parsed.y, width, height, isMaximized: parsed.isMaximized }
+    const raw: unknown = JSON.parse(fs.readFileSync(getWinStatePath(), 'utf8'))
+    if (isRecord(raw)) parsed = raw
   } catch {
-    return { width: 1200, height: 800 }
+    // Missing or corrupt state: use defaults.
+  }
+
+  const width  = Math.max(900, Math.min(finiteOrNull(parsed.width)  ?? 1200, 8192))
+  const height = Math.max(600, Math.min(finiteOrNull(parsed.height) ?? 800,  8192))
+  const x = finiteOrNull(parsed.x)
+  const y = finiteOrNull(parsed.y)
+  const isMaximized = parsed.isMaximized === true
+
+  if (x === null || y === null) return { width, height, isMaximized }
+
+  try {
+    const isVisible = screen.getAllDisplays().some(({ workArea }) => (
+      x < workArea.x + workArea.width &&
+      x + width > workArea.x &&
+      y < workArea.y + workArea.height &&
+      y + height > workArea.y
+    ))
+    return isVisible
+      ? { x, y, width, height, isMaximized }
+      : { width, height, isMaximized }
+  } catch {
+    return { width, height, isMaximized }
   }
 }
 
@@ -296,15 +326,18 @@ function broadcast<T>(channel: string, payload: T, options: { visibleOnly?: bool
   }
 }
 
-function sanitizeSettings(settings: Partial<Settings>): Settings {
-  const threshold       = Number(settings.threshold)
-  const cooldownMinutes = Number(settings.cooldownMinutes)
-  const pauseMinutes    = Number(settings.pauseMinutes)
+function sanitizeSettings(settings: unknown): Settings {
+  const input = settings && typeof settings === 'object'
+    ? settings as Partial<Settings>
+    : {}
+  const threshold       = Number(input.threshold)
+  const cooldownMinutes = Number(input.cooldownMinutes)
+  const pauseMinutes    = Number(input.pauseMinutes)
   return {
     threshold:       Number.isFinite(threshold)       ? Math.max(0.5 * 1024 * 1024, threshold)       : currentSettings.threshold,
     cooldownMinutes: Number.isFinite(cooldownMinutes) ? Math.max(5 / 60, cooldownMinutes)             : currentSettings.cooldownMinutes,
     pauseMinutes:    Number.isFinite(pauseMinutes)    ? Math.max(5 / 60, pauseMinutes)                : currentSettings.pauseMinutes,
-    watchlist: sanitizeWatchlist(settings.watchlist),
+    watchlist: sanitizeWatchlist(input.watchlist),
   }
 }
 
@@ -348,6 +381,15 @@ function formatRateBps(bytesPerSec: number) {
   return `${bytesPerSec.toFixed(0)} B/s`
 }
 
+function showNotification(title: string, body: string) {
+  if (!Notification.isSupported()) return
+  try {
+    new Notification({ title, body, silent: false }).show()
+  } catch (error) {
+    console.warn('Failed to show notification:', error)
+  }
+}
+
 function handleTrafficAlert(stats: NetworkStat) {
   if (isTelemetryPaused() || currentSettings.threshold <= 0) return
   const now = Date.now()
@@ -370,8 +412,9 @@ function handleTrafficAlert(stats: NetworkStat) {
 
   if (!title || !direction) return
 
-  new Notification({ title, body, silent: false }).show()
+  showNotification(title, body)
   lastAlertTime = now
+  const rateBps = direction === 'rx' ? stats.rx_sec : stats.tx_sec
   broadcast(IPC_CHANNELS.alertTriggered, {
     title,
     body,
@@ -379,7 +422,8 @@ function handleTrafficAlert(stats: NetworkStat) {
     direction,
     rxSec: stats.rx_sec,
     txSec: stats.tx_sec,
-    rateLabel: formatRateBps(direction === 'rx' ? stats.rx_sec : stats.tx_sec),
+    rateBps,
+    rateLabel: formatRateBps(rateBps),
   })
 }
 
@@ -394,7 +438,8 @@ async function monitorTrafficLoop() {
   try {
     if (!isTelemetryPaused() && hasVisibleTrafficConsumer()) {
       const systemStats = aggregateTrafficStats(await si.networkStats())
-      const fallbackStats = hasUsableTrafficStats(systemStats)
+      const hasSystemStats = hasUsableTrafficStats(systemStats)
+      const fallbackStats = hasSystemStats
         ? null
         : await sampleWindowsPerformanceCounters()
       lastTrafficStats = {
@@ -404,8 +449,13 @@ async function monitorTrafficLoop() {
       }
       broadcast(IPC_CHANNELS.trafficUpdate, lastTrafficStats, { visibleOnly: true })
       handleTrafficAlert(lastTrafficStats)
+      // If both collectors produced unusable data, back off instead of
+      // re-running PowerShell at the full cadence.
+      if (!hasSystemStats && !fallbackStats) trafficErrorStreak += 1
+      else trafficErrorStreak = 0
+    } else {
+      trafficErrorStreak = 0
     }
-    trafficErrorStreak = 0
   } catch (error) {
     trafficErrorStreak += 1
     console.error('Monitor loop error:', error)
@@ -506,7 +556,7 @@ function createOverlayWindow() {
     useContentSize: true,
     show: false,
     webPreferences: {
-      preload: path.join(__dirname, 'preload.js'),
+      preload: path.join(__dirname, 'overlay-preload.js'),
       nodeIntegration: false,
       contextIsolation: true,
       sandbox: true,
@@ -530,7 +580,12 @@ function createOverlayWindow() {
     overlayWin?.showInactive()
   })
 
-  overlayWin.on('closed', () => { overlayWin = null; overlayMode = 'unlocked' })
+  overlayWin.on('closed', () => {
+    overlayWin = null
+    overlayMode = 'unlocked'
+    broadcast(IPC_CHANNELS.overlayClosed, null)
+    broadcast(IPC_CHANNELS.overlayModeChanged, overlayMode)
+  })
 }
 
 function createWindow() {
@@ -610,21 +665,26 @@ app.on('before-quit', () => {
   // Signal renderer to clean up IPC subscriptions before we stop monitoring
   broadcast(IPC_CHANNELS.appBeforeQuit, null)
   stopMonitoring()
+  if (process.platform === 'win32') {
+    try { si.powerShellRelease() } catch { /* best-effort shutdown */ }
+  }
 })
 
 // ─── IPC Handlers ─────────────────────────────────────────────────────────────
 
 void app.whenReady().then(() => {
   installCSP()
+  // Keep one PowerShell worker warm on Windows. systeminformation otherwise
+  // spawns a fresh shell for several network queries on every poll.
+  if (process.platform === 'win32') {
+    try { si.powerShellStart() } catch (error) {
+      console.warn('Failed to start persistent PowerShell worker:', error)
+    }
+  }
   createWindow()
   startMonitoring()
 
-  ipcMain.handle(IPC_CHANNELS.getAppVersion, (event) => {
-    if (rejectUntrustedSender(event, IPC_CHANNELS.getAppVersion)) return ''
-    return app.getVersion()
-  })
-
-  ipcMain.on(IPC_CHANNELS.updateSettings, (event, settings: Settings) => {
+  ipcMain.on(IPC_CHANNELS.updateSettings, (event, settings: unknown) => {
     if (rejectUntrustedSender(event, IPC_CHANNELS.updateSettings)) return
     currentSettings = sanitizeSettings(settings)
   })
@@ -661,7 +721,7 @@ void app.whenReady().then(() => {
       if (!oldest.done) lastWatchSightingAt.delete(oldest.value)
     }
 
-    new Notification({ title: 'Watched process active', body: name, silent: false }).show()
+    showNotification('Watched process active', name)
   })
 
   ipcMain.handle(IPC_CHANNELS.getTrafficStats, (event) => {
@@ -713,6 +773,11 @@ void app.whenReady().then(() => {
     return overlayMode
   })
 
+  ipcMain.handle(IPC_CHANNELS.getOverlayOpen, (event) => {
+    if (rejectUntrustedSender(event, IPC_CHANNELS.getOverlayOpen)) return false
+    return Boolean(overlayWin && !overlayWin.isDestroyed())
+  })
+
   ipcMain.handle(IPC_CHANNELS.setOverlayMode, (event, mode: OverlayMode) => {
     if (rejectUntrustedSender(event, IPC_CHANNELS.setOverlayMode)) return false
     if (mode !== 'locked' && mode !== 'unlocked') return false
@@ -726,6 +791,7 @@ void app.whenReady().then(() => {
       overlayWin.setFocusable(true)
     }
     overlayMode = mode
+    broadcast(IPC_CHANNELS.overlayModeChanged, overlayMode)
     return true
   })
 })

@@ -40,7 +40,7 @@ Electron + React + TypeScript desktop app for Windows network monitoring.
 
 ## CI Notes
 - CI runs on `feat/ui-ux-redesign`, `master` (push), and `master` (PRs) only
-- CI uses `--max-warnings 0` for ESLint; dev `pnpm lint` does not
+- Both CI and `pnpm lint` enforce `--max-warnings 0`
 - **CI lint is blocking** — failures fail the `typecheck-and-build` job
 - Ubuntu job: typecheck + lint + tests + renderer-only build (`vite.config.renderer.ts`)
 - Windows job (`package-windows`): full packaging via `pnpm build:no-geoip` (tsc + vite + electron-builder)
@@ -51,7 +51,7 @@ Electron + React + TypeScript desktop app for Windows network monitoring.
 - Run via `node ./scripts/run-vitest.mjs` (wrapper handles pnpm platform quirks)
 
 ## Dependencies
-- **Package manager: pnpm only** (preinstall hook blocks other package managers)
+- **Package manager: pnpm only** (preinstall hook blocks other package managers); pinned to pnpm 12.15.0 via `packageManager`, with CI using the same version through `pnpm/action-setup`
 - pnpm overrides in `package.json` pin transitive dependencies — do not remove them
 - Overrides are mirrored in `pnpm-workspace.yaml` (`overrides` + `allowBuilds`) — required by pnpm ≥12, which ignores the `package.json` field; keep both in sync
 - React 18, Tailwind CSS v3, Recharts, systeminformation, Dexie, geoip-lite

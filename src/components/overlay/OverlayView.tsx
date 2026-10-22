@@ -46,6 +46,7 @@ export function OverlayView() {
 
   const alertTimeoutRef   = useRef<number | null>(null)
   const stalenessTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const receivedLiveRef    = useRef(false)
 
   const resetStalenessTimer = useCallback(() => {
     setIsStale(false)
@@ -59,10 +60,19 @@ export function OverlayView() {
       setIsStale(true)
       return
     }
+
+    let active = true
+    const unsubscribeMode = desktop.onOverlayModeChange((mode) => {
+      if (active) setIsLocked(mode === 'locked')
+    })
+    void invokeWithTimeout(() => desktop.getOverlayMode())
+      .then((mode) => { if (active) setIsLocked(mode === 'locked') })
+      .catch((error) => console.error('Failed to read overlay mode:', error))
+
     const loadInitialStats = async () => {
       try {
         const data = await invokeWithTimeout(() => desktop.getTrafficStats())
-        if (data) {
+        if (data && !receivedLiveRef.current) {
           setStats((prev) => mergeOverlayStats(prev, data))
           resetStalenessTimer()
         }
@@ -74,6 +84,7 @@ export function OverlayView() {
     void loadInitialStats()
 
     const unsubscribeTraffic = desktop.onTrafficUpdate((data: NetworkStat) => {
+      receivedLiveRef.current = true
       setStats((prev) => mergeOverlayStats(prev, data))
       resetStalenessTimer()
     })
@@ -97,9 +108,11 @@ export function OverlayView() {
     stalenessTimerRef.current = setTimeout(() => { setIsStale(true) }, STALENESS_THRESHOLD_MS)
 
     return () => {
+      active = false
       unsubscribeTraffic()
       unsubscribeLatency()
       unsubscribeAlert()
+      unsubscribeMode()
       if (alertTimeoutRef.current) window.clearTimeout(alertTimeoutRef.current)
       if (stalenessTimerRef.current) clearTimeout(stalenessTimerRef.current)
     }

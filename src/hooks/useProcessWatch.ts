@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef } from 'react'
 import type { Connection } from '../types'
 import { getDesktop } from '../lib/ipc'
-import { findNewSightings, findWatchedConnections } from '../lib/watchlist'
+import { findNewSightings, findWatchedConnections, isWatchSightingDue } from '../lib/watchlist'
 import { toast } from '../components/ui/Toast'
 
 /**
@@ -13,6 +13,7 @@ import { toast } from '../components/ui/Toast'
  */
 export function useProcessWatch(connections: Connection[], watchlist: string[]) {
   const prevWatchedRef = useRef<Connection[]>([])
+  const lastToastAtRef = useRef(new Map<string, number>())
 
   const watched = useMemo(
     () => findWatchedConnections(connections, watchlist),
@@ -26,7 +27,16 @@ export function useProcessWatch(connections: Connection[], watchlist: string[]) 
     const fresh = findNewSightings(prev, watched)
     if (fresh.length === 0) return
     const desktop = getDesktop()
+    const now = Date.now()
     for (const name of fresh) {
+      const key = name.toLowerCase()
+      if (!isWatchSightingDue(lastToastAtRef.current.get(key), now)) continue
+      lastToastAtRef.current.set(key, now)
+      if (lastToastAtRef.current.size > 100) {
+        const oldest = lastToastAtRef.current.keys().next()
+        if (!oldest.done) lastToastAtRef.current.delete(oldest.value)
+      }
+
       toast.warning(`Watched process active: ${name}`, 'Process Watchlist')
       try {
         desktop?.notifyWatchSighting(name)

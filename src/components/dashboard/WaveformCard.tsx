@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useId, useMemo } from 'react'
 import type { ReactNode } from 'react'
 
 interface WaveformCardProps {
@@ -9,7 +9,6 @@ interface WaveformCardProps {
   color: 'sky' | 'emerald' | 'violet' | 'amber' | 'rose'
   icon: ReactNode
   threshold?: number
-  accent?: boolean
 }
 
 const C = {
@@ -31,6 +30,9 @@ function sparkline(vals: number[], W: number, H: number) {
 
 export function WaveformCard({ label, value, subLabel, history, color, icon, threshold }: WaveformCardProps) {
   const c = C[color]
+  const uid = useId().replace(/:/g, '')
+  const gradientId = `wave-gradient-${uid}`
+  const blurId = `wave-blur-${uid}`
   const W = 260; const H = 60
 
   const { line, fill } = useMemo(() => sparkline(history, W, H), [history])
@@ -54,17 +56,17 @@ export function WaveformCard({ label, value, subLabel, history, color, icon, thr
       <div className="pointer-events-none absolute inset-x-0 bottom-0 opacity-70 transition-opacity duration-300 group-hover:opacity-90">
         <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" width="100%" height={H} aria-hidden>
           <defs>
-            <linearGradient id={`wg-${color}`} x1="0" y1="0" x2="0" y2="1">
+            <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
               <stop offset="0%"   stopColor={c.stroke} stopOpacity={0.4 + glowIntensity * 0.2} />
               <stop offset="100%" stopColor={c.stroke} stopOpacity={0} />
             </linearGradient>
-            <filter id={`blur-${color}`}>
+            <filter id={blurId}>
               <feGaussianBlur stdDeviation="1" />
             </filter>
           </defs>
-          {fill && <path d={fill} fill={`url(#wg-${color})`} />}
+          {fill && <path d={fill} fill={`url(#${gradientId})`} />}
           {/* Glow line */}
-          {line && <path d={line} fill="none" stroke={c.stroke} strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" opacity={0.3} filter={`url(#blur-${color})`} />}
+          {line && <path d={line} fill="none" stroke={c.stroke} strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" opacity={0.3} filter={`url(#${blurId})`} />}
           {/* Sharp line on top */}
           {line && <path d={line} fill="none" stroke={c.stroke} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />}
         </svg>

@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "A Windows desktop application to monitor network activity.",
   "main": "dist-electron/main.js",
+  "packageManager": "pnpm@12.15.0",
   "scripts": {
     "dev": "vite",
     "build:no-geoip": "node ./scripts/clean-build-output.mjs && tsc && vite build && electron-builder --publish never",
@@ -11,13 +12,15 @@
     "test": "node ./scripts/run-vitest.mjs",
     "test:strict": "node ./scripts/run-vitest.mjs --testTimeout=30000 --hookTimeout=30000 --teardownTimeout=30000",
     "typecheck": "tsc --noEmit",
-    "lint": "eslint src electron",
+    "lint": "eslint src electron --max-warnings 0",
     "geoip:update": "node ./scripts/update-geoip-data.mjs --strict",
     "geoip:update:best-effort": "node ./scripts/update-geoip-data.mjs",
     "preview": "vite preview",
-    "preinstall": "npx only-allow pnpm"
+    "preinstall": "npx --yes only-allow@1.2.1 pnpm"
   },
   "build": {
+    "appId": "com.netmonitor.pro",
+    "electronDist": "node_modules/electron/dist",
     "compression": "maximum",
     "directories": {
       "output": "release",

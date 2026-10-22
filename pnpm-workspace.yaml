@@ -1,10 +1,13 @@
+packages:
+  - '.'
+
 allowBuilds:
   electron: true
   electron-winstaller: true
   esbuild: true
 
 # pnpm v10+ reads overrides from here (package.json `pnpm.overrides` is ignored
-# by pnpm >=12, kept for CI's pnpm 9). Keep both in sync.
+# by pnpm >=12; it is kept in sync for older pnpm 9 tooling).
 overrides:
   '@tootallnate/once': ^3.0.1
   '@xmldom/xmldom': ^0.9.9

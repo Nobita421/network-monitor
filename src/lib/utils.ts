@@ -38,7 +38,7 @@ export const loadStoredNumber = (key: string): number | null => {
 }
 
 export function formatBytes(bytes: number, decimals = 1) {
-  if (!+bytes) return '0 B'
+  if (!Number.isFinite(bytes) || bytes < 1) return '0 B'
   const k = 1024
   const dm = decimals < 0 ? 0 : decimals
   const sizes = ['B', 'KB', 'MB', 'GB', 'TB']

@@ -14,16 +14,18 @@ function subscribe<T>(channel: string, listener: (payload: T) => void) {
 }
 
 const desktopApi: DesktopApi = {
-  getAppVersion: () => ipcRenderer.invoke(IPC_CHANNELS.getAppVersion),
   getIpLocations: (ips: string[]) => ipcRenderer.invoke(IPC_CHANNELS.getIpLocations, ips),
   getNetworkConnections: () => ipcRenderer.invoke(IPC_CHANNELS.getNetworkConnections) as Promise<Connection[]>,
   getOverlayMode: () => ipcRenderer.invoke(IPC_CHANNELS.getOverlayMode),
+  getOverlayOpen: () => ipcRenderer.invoke(IPC_CHANNELS.getOverlayOpen) as Promise<boolean>,
   getTrafficStats: () => ipcRenderer.invoke(IPC_CHANNELS.getTrafficStats) as Promise<NetworkStat | null>,
   killProcess: (pid: number) => ipcRenderer.invoke(IPC_CHANNELS.killProcess, pid),
   onAlertTriggered: (listener: (payload: AlertPayload) => void) => subscribe(IPC_CHANNELS.alertTriggered, listener),
   onAppBeforeQuit: (listener: () => void) => subscribe(IPC_CHANNELS.appBeforeQuit, listener),
   onConnectionsUpdate: (listener: (connections: Connection[]) => void) => subscribe(IPC_CHANNELS.connectionsUpdate, listener),
   onLatencyUpdate: (listener: (payload: LatencyPayload) => void) => subscribe(IPC_CHANNELS.latencyUpdate, listener),
+  onOverlayClosed: (listener: () => void) => subscribe(IPC_CHANNELS.overlayClosed, listener),
+  onOverlayModeChange: (listener: (mode: OverlayMode) => void) => subscribe(IPC_CHANNELS.overlayModeChanged, listener),
   onTrafficUpdate: (listener: (stats: NetworkStat) => void) => subscribe(IPC_CHANNELS.trafficUpdate, listener),
   setOverlayMode: (mode: OverlayMode) => ipcRenderer.invoke(IPC_CHANNELS.setOverlayMode, mode),
   setTelemetryPaused: (durationMs: number) => {

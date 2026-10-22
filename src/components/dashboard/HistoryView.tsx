@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from 'react'
+import { useMemo, useState, useEffect, useRef } from 'react'
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, type TooltipProps } from 'recharts'
 import type { NameType, ValueType } from 'recharts/types/component/DefaultTooltipContent'
 import { Activity, BarChart2, Clock, TrendingDown, TrendingUp } from 'lucide-react'
@@ -16,12 +16,23 @@ const RANGE_LABELS: Record<StoredHistoryRange, string> = {
   '7d': '7 Days',
 }
 
+const HISTORY_PAGE_SIZE = 5000
+
+function nextPageStart(logs: TrafficLog[]): number | null {
+  const lastTimestamp = logs[logs.length - 1]?.timestamp
+  return typeof lastTimestamp === 'number' ? lastTimestamp : null
+}
+
 export function HistoryView() {
   const [logs, setLogs]       = useState<TrafficLog[]>([])
   const [loading, setLoading] = useState(true)
   const [range, setRange]     = useState<StoredHistoryRange>('1h')
+  const requestIdRef          = useRef(0)
 
   useEffect(() => {
+    const request = { id: ++requestIdRef.current, active: true }
+    const isCurrent = () => request.active && request.id === requestIdRef.current
+
     const fetch = async () => {
       setLoading(true)
       try {
@@ -33,22 +44,49 @@ export function HistoryView() {
         }
         const step = getHistorySampleStep(range)
         const sampled: TrafficLog[] = []
+        const start = now - offsets[range]
+        let cursor: number | null = null
         let idx = 0
-        await db.traffic_logs.where('timestamp').aboveOrEqual(now - offsets[range]).each(log => {
-          if (idx % step === 0) sampled.push(log)
-          idx++
-        })
-        setLogs(sampled)
+
+        // Page the index instead of holding the whole range in one cursor
+        // callback. This keeps the renderer responsive while a 7-day range is
+        // read and still samples across the entire period.
+        while (isCurrent()) {
+          const page = cursor === null
+            ? await db.traffic_logs.where('timestamp').aboveOrEqual(start).limit(HISTORY_PAGE_SIZE).toArray()
+            : await db.traffic_logs.where('timestamp').above(cursor).limit(HISTORY_PAGE_SIZE).toArray()
+          if (page.length === 0) break
+
+          for (const log of page) {
+            if (idx % step === 0) sampled.push(log)
+            idx++
+          }
+
+          const nextCursor = nextPageStart(page)
+          if (nextCursor === null || nextCursor === cursor) break
+          cursor = nextCursor
+          await new Promise<void>((resolve) => { setTimeout(resolve, 0) })
+        }
+
+        // A slower older range must not overwrite the newly selected range.
+        if (isCurrent()) setLogs(sampled)
       } catch (e) {
-        console.error(e)
+        if (isCurrent()) console.error(e)
       } finally {
-        setLoading(false)
+        if (isCurrent()) setLoading(false)
       }
     }
     void fetch()
+    return () => {
+      // Stop paging when the range changes or the view unmounts.
+      request.active = false
+    }
   }, [range])
 
-  const fmtX  = (v: number) => new Date(v).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+  const latestSample = logs.length > 0 ? logs[logs.length - 1].timestamp : null
+  const fmtX  = (v: number) => range === '7d'
+    ? new Date(v).toLocaleDateString([], { month: 'short', day: 'numeric' })
+    : new Date(v).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
   const fmtTT = (v: string | number) => new Date(v).toLocaleString()
   const fmtVal: TooltipProps<ValueType, NameType>['formatter'] = v =>
     [`${formatRechartsByte(typeof v === 'number' ? v : Number(v))}/s`, '']
@@ -202,7 +240,9 @@ export function HistoryView() {
           </span>
           <span className="ml-auto flex items-center gap-1 text-[10px] text-slate-700">
             <Clock size={10} />
-            Updated {new Date().toLocaleTimeString()}
+            {latestSample
+              ? `Latest sample ${new Date(latestSample).toLocaleTimeString()}`
+              : 'No samples'}
           </span>
         </div>
       )}

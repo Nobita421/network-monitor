@@ -15,6 +15,20 @@ interface GlobeViewProps {
     connections: Connection[]
 }
 
+const THREAT_COUNTRY_NAMES = new Set([
+    'russia',
+    'russian federation',
+    'china',
+    "people's republic of china",
+    'north korea',
+    "korea, democratic people's republic of",
+    'dprk',
+])
+
+function isThreatCountry(country: string | undefined): boolean {
+    return country ? THREAT_COUNTRY_NAMES.has(country.trim().toLowerCase()) : false
+}
+
 interface GlobeHexPoint {
     lat: number;
     lng: number;
@@ -189,7 +203,7 @@ export function GlobeView({ connections }: GlobeViewProps) {
                 const prevCount = prevLocationsRef.current.get(key) || 0
 
                 if (prevCount < loc.totalConns) {
-                    const isThreat = ['Russia', 'China', 'North Korea'].includes(loc.country)
+                    const isThreat = isThreatCountry(loc.country)
                     newRings.push({
                         lat: loc.lat, lng: loc.lon,
                         maxR: 8, propagationSpeed: 4, repeatPeriod: 800,
