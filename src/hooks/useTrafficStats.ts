@@ -9,6 +9,7 @@ export function useTrafficStats() {
   const lastUpdateRef = useRef(0)
   const pendingRef    = useRef<NetworkStat | null>(null)
   const timerRef      = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const receivedLiveRef = useRef(false)
 
   useEffect(() => {
     const desktop = getDesktop()
@@ -17,7 +18,9 @@ export function useTrafficStats() {
     const loadInitialStats = async () => {
       try {
         const initialStats = await invokeWithTimeout(() => desktop.getTrafficStats())
-        if (initialStats) {
+        // A live event may have arrived while this request was in flight. Never
+        // let the older snapshot roll state (and counter baselines) backwards.
+        if (initialStats && !receivedLiveRef.current) {
           setStats(initialStats)
         }
       } catch (error) {
@@ -28,6 +31,7 @@ export function useTrafficStats() {
     void loadInitialStats()
 
     const unsubscribe = desktop.onTrafficUpdate((nextStats: NetworkStat) => {
+      receivedLiveRef.current = true
       const now     = Date.now()
       const elapsed = now - lastUpdateRef.current
 

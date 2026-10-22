@@ -1,4 +1,5 @@
 import {
+  app,
   session,
   type BrowserWindow,
   type IpcMainEvent,
@@ -9,7 +10,11 @@ import { pathToFileURL } from 'node:url'
 
 export type TrustedEvent = IpcMainEvent | IpcMainInvokeEvent
 
-export const VITE_DEV_SERVER_URL = process.env.VITE_DEV_SERVER_URL
+// Never honor a dev-server override in a packaged build. Otherwise an attacker
+// who can set the environment could point the trusted renderer at remote code.
+export const VITE_DEV_SERVER_URL = app.isPackaged
+  ? undefined
+  : process.env.VITE_DEV_SERVER_URL
 
 const trustedWebContentsIds = new Set<number>()
 
@@ -103,4 +108,5 @@ export function installCSP() {
   session.defaultSession.setPermissionRequestHandler((_webContents, _permission, callback) => {
     callback(false)
   })
+  session.defaultSession.setPermissionCheckHandler(() => false)
 }

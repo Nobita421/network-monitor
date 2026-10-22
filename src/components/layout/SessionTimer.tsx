@@ -9,7 +9,10 @@ export const SessionTimer = memo(function SessionTimer() {
   const [elapsedSeconds, setElapsedSeconds] = useState(0)
 
   useEffect(() => {
-    const id = window.setInterval(() => { setElapsedSeconds((seconds) => seconds + 1) }, 1000)
+    const startedAt = Date.now()
+    const update = () => { setElapsedSeconds(Math.floor((Date.now() - startedAt) / 1000)) }
+    update()
+    const id = window.setInterval(update, 1000)
     return () => { window.clearInterval(id) }
   }, [])
 

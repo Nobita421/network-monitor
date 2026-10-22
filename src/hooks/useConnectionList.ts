@@ -9,6 +9,7 @@ export function useConnectionList() {
   const lastUpdateRef = useRef(0)
   const pendingRef = useRef<Connection[] | null>(null)
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const receivedLiveRef = useRef(false)
 
   useEffect(() => {
     const desktop = getDesktop()
@@ -17,7 +18,8 @@ export function useConnectionList() {
     const loadConnections = async () => {
       try {
         const data = await invokeWithTimeout(() => desktop.getNetworkConnections())
-        if (Array.isArray(data)) {
+        // Ignore an initial snapshot that resolved after a live connection update.
+        if (Array.isArray(data) && !receivedLiveRef.current) {
           setConnections(data)
         }
       } catch (error) {
@@ -28,6 +30,7 @@ export function useConnectionList() {
     void loadConnections()
 
     const unsubscribe = desktop.onConnectionsUpdate((nextConnections: Connection[]) => {
+      receivedLiveRef.current = true
       const now = Date.now()
       const elapsed = now - lastUpdateRef.current
 

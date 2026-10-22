@@ -13,10 +13,23 @@ interface CachedGeoEntry {
 const POSITIVE_CACHE_TTL_MS = 24 * 60 * 60 * 1000
 const NEGATIVE_CACHE_TTL_MS =  5 * 60 * 1000
 const DEBOUNCE_MS            = 800
+const MAX_CACHE_ENTRIES      = 2000
 
-// Module-level cache + pending set — shared across all renders/remounts
+// Module-level cache — shared across all renders/remounts. A cache miss is
+// fetched by the current mount; in-flight deduplication would leave a
+// remounted consumer waiting on a request whose owner has unmounted.
 const GLOBAL_IP_CACHE = new Map<string, CachedGeoEntry>()
-const PENDING_IPS     = new Set<string>()
+
+function rememberCacheEntry(ip: string, entry: CachedGeoEntry) {
+  GLOBAL_IP_CACHE.delete(ip)
+  GLOBAL_IP_CACHE.set(ip, entry)
+
+  while (GLOBAL_IP_CACHE.size > MAX_CACHE_ENTRIES) {
+    const oldest = GLOBAL_IP_CACHE.keys().next()
+    if (oldest.done) break
+    GLOBAL_IP_CACHE.delete(oldest.value)
+  }
+}
 
 export function useGeoLocation(ips: string[]) {
   const [locations,  setLocations]  = useState<Map<string, GeoLocation>>(() => {
@@ -30,11 +43,12 @@ export function useGeoLocation(ips: string[]) {
   })
 
   const [isLoading, setIsLoading] = useState(false)
-
-  // Track IPs dispatched by the *current* effect invocation for scoped cleanup
-  const dispatchedByThisEffect = useRef<string[]>([])
+  const requestIdRef = useRef(0)
 
   useEffect(() => {
+    const requestId = ++requestIdRef.current
+    const isCurrent = () => requestId === requestIdRef.current
+
     if (ips.length === 0) {
       setIsLoading(false)
       return
@@ -62,21 +76,19 @@ export function useGeoLocation(ips: string[]) {
       for (const ip of ips) {
         const entry = GLOBAL_IP_CACHE.get(ip)
         const isFresh = Boolean(entry && entry.expiresAt > scanNow)
-        if (!isFresh) GLOBAL_IP_CACHE.delete(ip)
-        if (!isFresh && !PENDING_IPS.has(ip)) {
+        if (!isFresh) {
+          GLOBAL_IP_CACHE.delete(ip)
           ipsToFetch.push(ip)
-          PENDING_IPS.add(ip)
         }
       }
 
       if (ipsToFetch.length === 0) {
         // All cached — no network call needed
-        setIsLoading(false)
+        if (isCurrent()) setIsLoading(false)
         return
       }
 
-      dispatchedByThisEffect.current = ipsToFetch
-      setIsLoading(true)
+      if (isCurrent()) setIsLoading(true)
 
       try {
         const desktop = getDesktop()
@@ -90,12 +102,18 @@ export function useGeoLocation(ips: string[]) {
           Object.entries(results).forEach(([ip, loc]) => {
             if (loc) {
               const geoLoc: GeoLocation = { ...loc, ip }
-              GLOBAL_IP_CACHE.set(ip, { location: geoLoc, expiresAt: cacheNow + POSITIVE_CACHE_TTL_MS })
+              rememberCacheEntry(ip, {
+                location: geoLoc,
+                expiresAt: cacheNow + POSITIVE_CACHE_TTL_MS,
+              })
               next.set(ip, geoLoc)
               changed = true
             } else {
               // Null = known IP with no geo data (CDN, private ASN, etc.)
-              GLOBAL_IP_CACHE.set(ip, { location: null, expiresAt: cacheNow + NEGATIVE_CACHE_TTL_MS })
+              rememberCacheEntry(ip, {
+                location: null,
+                expiresAt: cacheNow + NEGATIVE_CACHE_TTL_MS,
+              })
             }
           })
           return changed ? next : prev
@@ -103,9 +121,7 @@ export function useGeoLocation(ips: string[]) {
       } catch (error) {
         console.error('Failed to resolve IPs:', error)
       } finally {
-        for (const ip of ipsToFetch) PENDING_IPS.delete(ip)
-        dispatchedByThisEffect.current = []
-        setIsLoading(false)
+        if (isCurrent()) setIsLoading(false)
       }
     }
 
@@ -113,9 +129,6 @@ export function useGeoLocation(ips: string[]) {
 
     return () => {
       clearTimeout(timer)
-      // Only release IPs whose fetch hasn't started yet (timer was cancelled)
-      for (const ip of dispatchedByThisEffect.current) PENDING_IPS.delete(ip)
-      dispatchedByThisEffect.current = []
     }
   }, [ips])
 

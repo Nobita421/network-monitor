@@ -36,6 +36,8 @@ export interface AlertLogEntry {
   time: string
   direction: 'rx' | 'tx'
   rate: string
+  /** Unformatted bytes/sec used for severity classification. */
+  rateBps: number
 }
 
 export type HistoryPoint = { time: string; isoTime: string; rx: number; tx: number }

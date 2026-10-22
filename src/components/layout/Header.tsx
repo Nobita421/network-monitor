@@ -1,7 +1,7 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import * as Lucide from 'lucide-react'
 import { getDesktop, invokeWithTimeout } from '../../lib/ipc'
-import { formatCountdown } from '../../lib/utils'
+import { formatCountdown, getShortcutLabel } from '../../lib/utils'
 import type { HistoryPoint, Tab } from '../../types'
 
 const TAB_META: Record<Tab, { label: string; sub: string; icon: React.ReactNode }> = {
@@ -30,6 +30,31 @@ export function Header({
   const meta = TAB_META[activeTab]
   const [overlayOpen, setOverlayOpen] = useState(false)
   const [overlayLocked, setOverlayLocked] = useState(false)
+
+  useEffect(() => {
+    const desktop = getDesktop()
+    if (!desktop) return
+    let active = true
+    const unsubscribeMode = desktop.onOverlayModeChange((mode) => {
+      if (active) setOverlayLocked(mode === 'locked')
+    })
+    const unsubscribeClosed = desktop.onOverlayClosed(() => {
+      if (!active) return
+      setOverlayOpen(false)
+      setOverlayLocked(false)
+    })
+    void invokeWithTimeout(() => desktop.getOverlayMode())
+      .then((mode) => { if (active) setOverlayLocked(mode === 'locked') })
+      .catch((error) => console.error('Failed to read overlay mode:', error))
+    void invokeWithTimeout(() => desktop.getOverlayOpen())
+      .then((open) => { if (active) setOverlayOpen(open) })
+      .catch((error) => console.error('Failed to read overlay state:', error))
+    return () => {
+      active = false
+      unsubscribeMode()
+      unsubscribeClosed()
+    }
+  }, [])
 
   const handleToggleOverlay = async () => {
     const desktop = getDesktop()
@@ -86,7 +111,7 @@ export function Header({
         >
           <Lucide.Search size={12} />
           <span className="hidden md:inline">Search</span>
-          <kbd className="hidden md:inline-flex items-center gap-0.5 rounded border border-white/[0.08] bg-white/[0.04] px-1 py-0.5 text-[9px] text-slate-600">⌘K</kbd>
+          <kbd className="hidden md:inline-flex items-center gap-0.5 rounded border border-white/[0.08] bg-white/[0.04] px-1 py-0.5 text-[9px] text-slate-600">{getShortcutLabel('K')}</kbd>
         </button>
 
         {/* Pause/Resume */}

@@ -6,9 +6,8 @@ interface PulseTimelineProps {
   alertLog: AlertLogEntry[]
 }
 
-function severityConfig(rate: string) {
-  const num = parseFloat(rate)
-  if (num >= 50e6)
+function severityConfig(rateBps: number) {
+  if (rateBps >= 50 * 1024 * 1024)
     return {
       ring: 'border-rose-500/30',
       bg: 'bg-rose-500/[0.07]',
@@ -18,7 +17,7 @@ function severityConfig(rate: string) {
       icon: <AlertTriangle size={10} className="text-rose-400" />,
       glow: 'shadow-rose-500/10',
     }
-  if (num >= 10e6)
+  if (rateBps >= 10 * 1024 * 1024)
     return {
       ring: 'border-amber-500/30',
       bg: 'bg-amber-500/[0.07]',
@@ -83,11 +82,11 @@ export function PulseTimeline({ alertLog }: PulseTimelineProps) {
       ) : (
         <div ref={scrollRef} className="flex gap-2.5 overflow-x-auto pb-1 scrollbar-none">
           {alertLog.map((entry, i) => {
-            const s = severityConfig(entry.rate)
+            const s = severityConfig(entry.rateBps)
             const isRx = entry.direction === 'rx'
             return (
               <div
-                key={i}
+                key={`${entry.time}-${entry.direction}-${entry.rateBps}-${i}`}
                 className={`group relative shrink-0 w-40 rounded-xl border ${s.ring} ${s.bg} p-3 transition-all duration-200 hover:scale-105 hover:-translate-y-0.5 cursor-default shadow-lg ${s.glow}`}
               >
                 {/* Top row */}

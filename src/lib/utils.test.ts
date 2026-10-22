@@ -17,6 +17,12 @@ describe('formatBytes', () => {
   it('formats fractional values', () => {
     expect(formatBytes(1536)).toBe('1.5 KB')
   })
+
+  it('handles sub-byte, negative, and non-finite input safely', () => {
+    expect(formatBytes(0.5)).toBe('0 B')
+    expect(formatBytes(-1)).toBe('0 B')
+    expect(formatBytes(Number.NaN)).toBe('0 B')
+  })
 })
 
 describe('formatDuration', () => {

@@ -5,7 +5,7 @@ const unsupportedFlags = new Set(['--forceExit', '--no-coverage'])
 const normalizedArgs = passthroughArgs[0] === '--' ? passthroughArgs.slice(1) : passthroughArgs
 const filteredArgs = normalizedArgs.filter((arg) => !unsupportedFlags.has(arg))
 
-const vitestArgs = ['exec', 'vitest', 'run', '--config', 'vitest.config.ts', '--passWithNoTests', ...filteredArgs]
+const vitestArgs = ['exec', 'vitest', 'run', '--config', 'vitest.config.ts', ...filteredArgs]
 const pnpmCommand = process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm'
 
 const child = spawn(pnpmCommand, vitestArgs, {

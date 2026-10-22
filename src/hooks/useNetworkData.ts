@@ -23,21 +23,15 @@ export function useNetworkData(settings: Settings) {
   const [maxSpikes,       setMaxSpikes]       = useState({ rx: 0, tx: 0 })
   const [alertLog,        setAlertLog]        = useState<AlertLogEntry[]>([])
   const [alertIndicator,  setAlertIndicator]  = useState(false)
-  const [dbError,         setDbError]         = useState<string | null>(null)
 
   const lastPruneAtRef             = useRef(0)
   const alertIndicatorTimeoutRef   = useRef<number | null>(null)
   const dbErrorToastShownRef       = useRef(false)
-  const dbErrorRef                 = useRef<string | null>(null)
   const lastTrafficSampleRef       = useRef<string | null>(null)
   const lastTrafficSampleTimeRef   = useRef<number | null>(null)
   const lastCounterRef             = useRef<{ rx: number; tx: number } | null>(null)
   const pendingLogsRef             = useRef<TrafficLog[]>([])
   const flushLogsTimerRef          = useRef<number | null>(null)
-
-  useEffect(() => {
-    dbErrorRef.current = dbError
-  }, [dbError])
 
   const flushHistoryLogs = useCallback(async () => {
     if (flushLogsTimerRef.current) {
@@ -51,27 +45,29 @@ export function useNetworkData(settings: Settings) {
 
     try {
       await db.traffic_logs.bulkAdd(logs)
-
-      if (dbErrorRef.current) {
-        setDbError(null)
-        dbErrorToastShownRef.current = false
-      }
-
-      const newestTimestamp = logs[logs.length - 1]?.timestamp ?? Date.now()
-      if (newestTimestamp - lastPruneAtRef.current < 60 * 1000) return
-      lastPruneAtRef.current = newestTimestamp
-      await db.traffic_logs
-        .where('timestamp').below(newestTimestamp - HISTORY_RETENTION_MS).delete()
     } catch (error: unknown) {
-      pendingLogsRef.current = [...logs, ...pendingLogsRef.current].slice(-MAX_HISTORY)
+      pendingLogsRef.current = [...pendingLogsRef.current, ...logs].slice(-MAX_HISTORY)
       console.error('Failed to persist stats:', error)
       const msg = error instanceof Error ? error.message : 'Storage quota may be full'
-      setDbError(msg)
 
       if (!dbErrorToastShownRef.current) {
         dbErrorToastShownRef.current = true
         toast.warning('History not saving', `DB write failed: ${msg}`)
       }
+      return
+    }
+
+    dbErrorToastShownRef.current = false
+
+    try {
+      const newestTimestamp = logs[logs.length - 1]?.timestamp ?? Date.now()
+      if (newestTimestamp - lastPruneAtRef.current < 60 * 1000) return
+      await db.traffic_logs
+        .where('timestamp').below(newestTimestamp - HISTORY_RETENTION_MS).delete()
+      // Advance only after a successful prune so a failure can retry next flush.
+      lastPruneAtRef.current = newestTimestamp
+    } catch (error: unknown) {
+      console.warn('Failed to prune old history:', error)
     }
   }, [])
 
@@ -127,15 +123,24 @@ export function useNetworkData(settings: Settings) {
     }
   }, [telemetryPaused, telemetryResumeAt])
 
+  // Pausing should not turn the next resumed sample into a large catch-up delta.
+  useEffect(() => {
+    if (telemetryPaused) {
+      lastCounterRef.current = null
+      lastTrafficSampleRef.current = null
+      lastTrafficSampleTimeRef.current = null
+    }
+  }, [telemetryPaused])
+
   // Subscribe to alert events
   useEffect(() => {
     const desktop = getDesktop()
     if (!desktop) return
     const unsubscribe = desktop.onAlertTriggered((data: AlertPayload) => {
-      const { time, direction, rate } = resolveAlertEntry(data)
+      const { time, direction, rate, rateBps } = resolveAlertEntry(data)
 
       setAlertIndicator(true)
-      setAlertLog((prev) => [{ time, direction, rate }, ...prev].slice(0, 50))
+      setAlertLog((prev) => [{ time, direction, rate, rateBps }, ...prev].slice(0, 50))
 
       if (alertIndicatorTimeoutRef.current) window.clearTimeout(alertIndicatorTimeoutRef.current)
       alertIndicatorTimeoutRef.current = window.setTimeout(() => { setAlertIndicator(false) }, 2000)
@@ -179,9 +184,9 @@ export function useNetworkData(settings: Settings) {
 
     const previousSampleTime = lastTrafficSampleTimeRef.current
     lastTrafficSampleRef.current = sampleKey
-    lastTrafficSampleTimeRef.current = timestamp
 
     if (!telemetryPaused) {
+      lastTrafficSampleTimeRef.current = timestamp
       const isoTime   = new Date(timestamp).toISOString()
 
       const pingSample = data.ping
@@ -205,36 +210,40 @@ export function useNetworkData(settings: Settings) {
       })
     }
 
-    const rxBytes = data.rx_bytes
-    const txBytes = data.tx_bytes
-    const hasCounters = typeof rxBytes === 'number' && typeof txBytes === 'number'
-    const previousCounters = lastCounterRef.current
-    let rxDelta = 0
-    let txDelta = 0
+    if (!telemetryPaused) {
+      const rxBytes = data.rx_bytes
+      const txBytes = data.tx_bytes
+      const hasCounters = typeof rxBytes === 'number' && typeof txBytes === 'number'
+      const previousCounters = lastCounterRef.current
+      let rxDelta = 0
+      let txDelta = 0
 
-    if (hasCounters) {
-      if (previousCounters && rxBytes >= previousCounters.rx && txBytes >= previousCounters.tx) {
-        rxDelta = rxBytes - previousCounters.rx
-        txDelta = txBytes - previousCounters.tx
+      if (hasCounters) {
+        if (previousCounters && rxBytes >= previousCounters.rx && txBytes >= previousCounters.tx) {
+          rxDelta = rxBytes - previousCounters.rx
+          txDelta = txBytes - previousCounters.tx
+        }
+        lastCounterRef.current = { rx: rxBytes, tx: txBytes }
+      } else if (previousSampleTime) {
+        const elapsedSeconds = Math.max((timestamp - previousSampleTime) / 1000, 0)
+        rxDelta = data.rx_sec * elapsedSeconds
+        txDelta = data.tx_sec * elapsedSeconds
+        lastCounterRef.current = null
       }
-      lastCounterRef.current = { rx: rxBytes, tx: txBytes }
-    } else if (previousSampleTime) {
-      const elapsedSeconds = Math.max((timestamp - previousSampleTime) / 1000, 0)
-      rxDelta = data.rx_sec * elapsedSeconds
-      txDelta = data.tx_sec * elapsedSeconds
-      lastCounterRef.current = null
-    }
 
-    if (!telemetryPaused && (rxDelta > 0 || txDelta > 0)) {
-      setSessionUsage((prev) => ({ rx: prev.rx + rxDelta, tx: prev.tx + txDelta }))
+      if (rxDelta > 0 || txDelta > 0) {
+        setSessionUsage((prev) => ({ rx: prev.rx + rxDelta, tx: prev.tx + txDelta }))
+      }
     }
-    // Avoid allocating a new state object (and re-rendering consumers) when
-    // neither direction set a new max — this effect runs at 1Hz.
-    setMaxSpikes((prev) => {
-      const nextRx = Math.max(prev.rx, data.rx_sec)
-      const nextTx = Math.max(prev.tx, data.tx_sec)
-      return nextRx === prev.rx && nextTx === prev.tx ? prev : { rx: nextRx, tx: nextTx }
-    })
+    if (!telemetryPaused) {
+      // Avoid allocating a new state object (and re-rendering consumers) when
+      // neither direction set a new max — this effect runs at 1Hz.
+      setMaxSpikes((prev) => {
+        const nextRx = Math.max(prev.rx, data.rx_sec)
+        const nextTx = Math.max(prev.tx, data.tx_sec)
+        return nextRx === prev.rx && nextTx === prev.tx ? prev : { rx: nextRx, tx: nextTx }
+      })
+    }
   }, [trafficStats, telemetryPaused, queueHistoryLog])
 
   const processUsage = useMemo<ProcessUsageEntry[]>(
@@ -275,7 +284,6 @@ export function useNetworkData(settings: Settings) {
     alertIndicator,
     telemetryPaused,
     pauseCountdown,
-    dbError,
     toggleTelemetry,
   }
 }

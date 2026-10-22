@@ -17,6 +17,7 @@ export interface AlertPayload {
   direction?: 'rx' | 'tx'
   rxSec?: number
   txSec?: number
+  rateBps?: number
   rateLabel?: string
 }
 
@@ -31,13 +32,15 @@ export const IPC_CHANNELS = {
   alertTriggered: 'alert-triggered',
   appBeforeQuit: 'app-before-quit',
   connectionsUpdate: 'connections-update',
-  getAppVersion: 'get-app-version',
   getIpLocations: 'get-ip-locations',
   getNetworkConnections: 'get-network-connections',
   getOverlayMode: 'get-overlay-mode',
+  getOverlayOpen: 'get-overlay-open',
   getTrafficStats: 'get-traffic-stats',
   killProcess: 'kill-process',
   latencyUpdate: 'latency-update',
+  overlayClosed: 'overlay-closed',
+  overlayModeChanged: 'overlay-mode-changed',
   setOverlayMode: 'set-overlay-mode',
   setTelemetryPaused: 'set-telemetry-paused',
   toggleOverlay: 'toggle-overlay',
@@ -47,16 +50,18 @@ export const IPC_CHANNELS = {
 } as const
 
 export interface DesktopApi {
-  getAppVersion: () => Promise<string>
   getIpLocations: (ips: string[]) => Promise<Record<string, IpLocation | null>>
   getNetworkConnections: () => Promise<Connection[]>
   getOverlayMode: () => Promise<OverlayMode>
+  getOverlayOpen: () => Promise<boolean>
   getTrafficStats: () => Promise<NetworkStat | null>
   killProcess: (pid: number) => Promise<boolean>
   onLatencyUpdate: (listener: (payload: LatencyPayload) => void) => () => void
   onAlertTriggered: (listener: (payload: AlertPayload) => void) => () => void
   onAppBeforeQuit: (listener: () => void) => () => void
   onConnectionsUpdate: (listener: (connections: Connection[]) => void) => () => void
+  onOverlayClosed: (listener: () => void) => () => void
+  onOverlayModeChange: (listener: (mode: OverlayMode) => void) => () => void
   onTrafficUpdate: (listener: (stats: NetworkStat) => void) => () => void
   setOverlayMode: (mode: OverlayMode) => Promise<boolean>
   setTelemetryPaused: (durationMs: number) => void
